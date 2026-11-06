@@ -11,7 +11,7 @@ import {
 import { CardRecord, ViewTab, FilterType } from './types/card';
 import { 
   getStoredCards, saveStoredCards, getStoredSettings, 
-  saveStoredSettings, SAMPLE_CARDS 
+  saveStoredSettings, SAMPLE_CARDS, isSampleCard, removeSampleCards 
 } from './utils/storage';
 import { calculateBillStatus, calculateAnnualFeeStatus } from './utils/cardCalculations';
 import { POPULAR_BANKS } from './utils/bankData';
@@ -263,8 +263,36 @@ export default function App() {
 
         {/* ================= VIEW 1: CARDS SEARCH & VAULT ================= */}
         {currentTab === 'cards' && (
-          <div className="space-y-5">
+          <div className="space-y-4">
             
+            {/* Sample cards notification banner */}
+            {cards.some(c => isSampleCard(c)) && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                  <span className="p-1 rounded bg-amber-500/20 font-bold shrink-0 text-[11px]">💡 演示卡提示</span>
+                  <span>当前卡包包含系统预设的演示样卡。准备录入真实卡片时，可一键清除样卡或下载 Excel 批量导入。</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      if (confirm('确认清除系统预设的演示样卡吗？（您自己录入的真实卡片会完整保留）')) {
+                        updateCards(removeSampleCards(cards));
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-800 border border-amber-500/30 text-amber-800 dark:text-amber-300 hover:bg-amber-500/10 font-semibold transition-colors whitespace-nowrap"
+                  >
+                    一键清除样卡
+                  </button>
+                  <button
+                    onClick={() => setIsDataModalOpen(true)}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold shadow-xs transition-colors whitespace-nowrap"
+                  >
+                    批量维护与导入
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Search, Filters & View Toggle Bar */}
             <div className="p-3 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
               

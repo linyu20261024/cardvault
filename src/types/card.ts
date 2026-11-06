@@ -70,6 +70,7 @@ export interface CardRecord {
   
   createdAt: string;
   updatedAt: string;
+  isSample?: boolean;            // 是否为系统预置的演示样卡
 }
 
 export type ViewTab = 'cards' | 'calendar' | 'annual_fee' | 'stats';

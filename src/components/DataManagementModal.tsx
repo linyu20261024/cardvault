@@ -7,7 +7,8 @@ import {
 import { CardRecord } from '../types/card';
 import { 
   exportCardsToJson, importCardsFromJson, exportCardsToCsv, 
-  parseCsvToCards, getStandardCsvTemplate, SAMPLE_CARDS, saveStoredCards 
+  parseCsvToCards, getStandardCsvTemplate, SAMPLE_CARDS, saveStoredCards,
+  removeSampleCards, isSampleCard 
 } from '../utils/storage';
 
 interface DataManagementModalProps {
@@ -128,6 +129,18 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
       setJsonText('');
     } else {
       setMessage({ text: result.message, type: 'error' });
+    }
+  };
+
+  const hasSampleCards = cards.some(c => isSampleCard(c));
+
+  // 仅清除演示样卡，保留真实卡片
+  const handleClearSampleOnly = () => {
+    if (confirm('确认清除系统预设的 6 张演示样卡吗？您自己添加或导入的真实卡片会完好保留。')) {
+      const cleanCards = removeSampleCards(cards);
+      saveStoredCards(cleanCards);
+      onDataChanged(cleanCards);
+      setMessage({ text: '已清除系统预设的全部演示样卡，当前卡包已为您净化就绪！', type: 'success' });
     }
   };
 
@@ -326,6 +339,19 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
           {activeTab === 'csv' && (
             <div className="space-y-4">
               
+              {/* 批量维护真实卡片三步法指引 */}
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-1.5">
+                <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 text-xs">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                  <span>批量维护真实卡片并导入的操作指南：</span>
+                </div>
+                <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed pl-1 space-y-0.5">
+                  <div><strong>1. 下载模板：</strong>点击下方【下载表格模板 (.csv)】，用 Excel 或 WPS 打开；</div>
+                  <div><strong>2. 批量填写：</strong>对照表头填入您的真实发卡银行、卡号、额度、账单日与年费规则；</div>
+                  <div><strong>3. 一键拖入覆盖：</strong>右上角导入策略选择【全量覆盖】（可彻底替换掉初始样卡）并拖入下方上传即可！</div>
+                </div>
+              </div>
+
               {/* CSV 模板下载与导出 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800/80 flex flex-col justify-between">
@@ -392,16 +418,31 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
           )}
 
           {/* 底部重载与危险区 */}
-          <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-            <button
-              onClick={handleLoadSample}
-              className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>重载预置演示卡组</span>
-            </button>
+          <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {hasSampleCards && (
+                <button
+                  type="button"
+                  onClick={handleClearSampleOnly}
+                  className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>仅清除预设演示卡片（保留我的卡）</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleLoadSample}
+                className="px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-medium text-neutral-700 dark:text-neutral-300 flex items-center gap-1.5 transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>重载预置演示卡组</span>
+              </button>
+            </div>
 
             <button
+              type="button"
               onClick={handleClearAll}
               className="px-3 py-1.5 rounded-lg text-rose-600 hover:bg-rose-500/10 font-medium flex items-center gap-1 transition-colors"
             >

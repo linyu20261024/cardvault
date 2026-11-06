@@ -46,6 +46,7 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'crimson-ruby',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   },
   {
     id: 'sample-icbc-black',
@@ -92,6 +93,7 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'black-gold',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   },
   {
     id: 'sample-cgb-doli',
@@ -131,6 +133,7 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'carbon-titanium',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   },
   {
     id: 'sample-ccb-car',
@@ -169,6 +172,7 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'sapphire-blue',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   },
   {
     id: 'sample-cmb-debit',
@@ -207,6 +211,7 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'black-gold',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   },
   {
     id: 'sample-icbc-debit',
@@ -245,8 +250,17 @@ export const SAMPLE_CARDS: CardRecord[] = [
     cardColorTheme: 'emerald-green',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    isSample: true,
   }
 ];
+
+export function isSampleCard(card: CardRecord): boolean {
+  return Boolean(card.isSample || (card.id && card.id.startsWith('sample-')));
+}
+
+export function removeSampleCards(cards: CardRecord[]): CardRecord[] {
+  return cards.filter(c => !isSampleCard(c));
+}
 
 export function getStoredCards(): CardRecord[] {
   try {
