@@ -1,5 +1,4 @@
-import React from 'react';
-import { CreditCard, Shield, Eye, EyeOff, Lock, Unlock, Download, Plus, Sun, Moon } from 'lucide-react';
+import { CreditCard, Shield, Eye, EyeOff, Lock, Unlock, Download, Plus, Sun, Moon, Camera } from 'lucide-react';
 import { ViewTab } from '../types/card';
 
 interface HeaderProps {
@@ -8,6 +7,7 @@ interface HeaderProps {
   privacyMode: boolean;
   onTogglePrivacy: () => void;
   onOpenNewCard: () => void;
+  onOpenCardScan: () => void;
   onOpenDataModal: () => void;
   hasPin: boolean;
   onLockApp: () => void;
@@ -22,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   privacyMode,
   onTogglePrivacy,
   onOpenNewCard,
+  onOpenCardScan,
   onOpenDataModal,
   hasPin,
   onLockApp,
@@ -125,12 +126,12 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Import / Export Backup */}
             <button
               onClick={onOpenDataModal}
-              title="本地数据导入与备份导出"
+              title="本地数据导入与备份导出中心"
               className="p-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1"
               aria-label="Import and Export Data"
             >
               <Download className="w-4 h-4" />
-              <span className="hidden xl:inline text-xs">备份/导入</span>
+              <span className="hidden xl:inline text-xs">导入/导出</span>
             </button>
 
             {/* Theme Toggle */}
@@ -143,13 +144,23 @@ export const Header: React.FC<HeaderProps> = ({
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Primary Action Button */}
+            {/* Photo OCR Scan Button */}
+            <button
+              onClick={onOpenCardScan}
+              title="拍摄或上传银行卡正面照片自动提取信息并确认导入"
+              className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-amber-900 bg-amber-400 hover:bg-amber-300 dark:bg-amber-500 dark:text-neutral-950 dark:hover:bg-amber-400 rounded-lg shadow-xs transition-all whitespace-nowrap shrink-0"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span>拍卡提取</span>
+            </button>
+
+            {/* Manual New Card Button */}
             <button
               onClick={onOpenNewCard}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-lg shadow-sm transition-all whitespace-nowrap shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>添加卡片</span>
+              <span>手动添加</span>
             </button>
           </div>
 

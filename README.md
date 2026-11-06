@@ -1,20 +1,107 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# CardVault - 个人信用卡与储蓄卡信息管理工具
 
-# Run and deploy your AI Studio app
+> 纯本地、离线优先（Local-First）的安全个人信用卡与借记卡管理系统。支持卡片管理、年费刷免进度跟踪、账单还款日智能倒计时、免息期最佳用卡推荐及多维卡片搜索。
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/a2e27086-cf50-4502-8843-3cfaa6268924
+## 🌟 核心特性
 
-## Run Locally
+- **🔒 100% 纯本地离线隐私存储**：所有卡号、额度、账单日、还款日及年费记录均保存在浏览器本地 `localStorage` 中，绝不向任何第三方或云端服务器上传敏感金融数据。
+- **💳 拟真 3D 物理卡包 & 紧凑表格双视图**：
+  - 拟真卡面正面与反面 3D 翻折，内置工行、招行、建行、中行、农行、交行、广发等专属品牌质感、EMV 芯片、闪付无线波纹、银联/Visa/Mastercard 标识、磁条与签名栏。
+  - CVV 默认隐匿，支持一键点击揭示与卡号一键复制。
+  - 支持切换高密度表格视图，适合多卡用户集中对比。
+- **🎯 信用卡年费刷免达标智能追踪**：
+  - 支持「刷满 N 次免」、「刷满金额免」、「刚性扣收」、「积分兑换冲抵」、「终身免年费」。
+  - 实时记录已刷次数（例如 `4/6 次`，进度 66.7%）与核卡纪念日倒计时。
+  - 支持一键「+1 记刷免」，快速登记日常消费流水，达标自动亮标。
+  - 临期预警：距离年费日不足 30 天且未达标时置顶红色警报。
+- **📅 账单日与还款日智能提醒 & 免息期攻略**：
+  - 自动推算本期账单日与还款截止日，标明「已逾期 / 今日到期 / 仅剩N天 / 本期已还清」。
+  - 一键登记账单还款，支持全额结清或部分还款。
+  - **今日刷卡免息期推荐榜**：根据账单周期自动计算今日刷卡可享受的最长免息期（最高可达 50~56 天），推荐今日消费首选用卡。
+- **🔍 即时搜索与多维过滤**：
+  - 支持按银行、卡名、卡号尾号（如 `8899`）、持卡人、卡组织及私密备忘即时搜索。
+  - 支持一键分类过滤（信用卡、储蓄卡、待还账单、5天内到期、年费待达标）。
+- **🛡️ 隐私保护模式与 PIN 码安全锁**：
+  - 一键开启隐私遮挡模式，卡号敏感位和金额自动转为掩码。
+  - 支持配置 4-6 位数字 PIN 码，离席时一键锁屏。
+- **📷 拍卡智能识别与核对导入（OCR 视觉提取）**：
+  - 支持手机直接拍照或电脑上传/截屏粘贴（`Ctrl+V`）银行卡正面照片。
+  - 智能多模态视觉识别发卡银行、卡产品名称、卡号（纯数字无空格）、持卡人姓名、有效期（MM/YY）及卡组织。
+  - **确认后导入（人机协同）**：识别完成后提供照片与提取字段的左右对照核验弹窗，支持自由微调卡号、快速配置信用额度、账单日、还款日及年费刷免规则，确认无误后再入库保存。
+- **📦 稳定高效的数据导入导出体系**：
+  - **JSON 完整备份恢复**：一键导出包含全部卡片、刷免明细、还款状态的 `.json` 文件，支持文件上传或文本直接粘贴恢复（可选增量合并或全量覆盖）。
+  - **CSV / Excel 标准表格批量导入导出**：支持一键下载标准 CSV 模板表格，在 Excel / WPS 中批量填好后一键拖拽导入。
+  - **一键重载演示卡组**：预置招行经典白、工银黑金、建行汽车卡、广发多利卡及储蓄卡，供随时体验测试。
 
-**Prerequisites:**  Node.js
+---
 
+## 🚀 快速开始
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 本地运行
+
+```bash
+# 1. 克隆代码仓库
+git clone https://github.com/<你的用户名>/<你的仓库名>.git
+
+# 2. 进入项目目录
+cd <你的仓库名>
+
+# 3. 安装依赖包
+npm install
+
+# 4. 启动本地开发服务器
+npm run dev
+```
+
+启动后在浏览器访问 `http://localhost:3000` 即可开始使用。
+
+### 项目打包
+
+```bash
+npm run build
+```
+
+打包产物位于 `dist/` 目录下。
+
+---
+
+## 🌐 部署至 GitHub Pages 步骤
+
+本项目为纯客户端单页应用（SPA），已配置相对路径 `base: './'` 及自动化构建工作流：
+
+1. **新建 GitHub 仓库并推送代码**：
+   ```bash
+   git init
+   git add .
+   git commit -m "feat: init CardVault app"
+   git branch -M main
+   git remote add origin https://github.com/<你的用户名>/<你的仓库名>.git
+   git push -u origin main
+   ```
+
+2. **在 GitHub 仓库开启 Pages**：
+   - 打开 GitHub 仓库页面，点击 **Settings**（设置）。
+   - 在左侧菜单点击 **Pages**。
+   - 在 **Build and deployment** > **Source** 下拉菜单中，选择 **GitHub Actions**。
+
+3. **自动发布**：
+   - 项目内置的 `.github/workflows/deploy.yml` 会在您推送代码后自动运行构建并发布。
+   - 部署完成后即可通过 `https://<你的用户名>.github.io/<你的仓库名>/` 免费在线访问使用。
+
+---
+
+## 💻 技术栈
+
+- **框架**：React 19 + TypeScript
+- **构建工具**：Vite 6 / 8
+- **样式**：Tailwind CSS v4
+- **图标**：Lucide React
+- **持久化**：HTML5 LocalStorage（完全离线本地运行）
+
+---
+
+## 📄 开源许可
+
+本项目遵循 [Apache-2.0](LICENSE) 许可证。

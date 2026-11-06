@@ -436,3 +436,206 @@ export function exportCardsToCsv(cards: CardRecord[]): string {
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
+
+/**
+ * 获取标准 CSV 模板供用户下载填写
+ */
+export function getStandardCsvTemplate(): string {
+  const headers = [
+    '类型(信用卡/储蓄卡)',
+    '发卡银行',
+    '卡片名称',
+    '银行卡号',
+    '持卡人姓名',
+    '有效期(MM/YY)',
+    '安全码(CVV)',
+    '卡组织(UnionPay/Visa/Mastercard)',
+    '信用额度',
+    '本期账单金额',
+    '每月账单日(1-31)',
+    '每月还款日(1-31)',
+    '本期已还(是/否)',
+    '年费规则(swipeCount/fixedCharge/lifetimeFree)',
+    '年费已刷/目标(如 0/6)',
+    '客服电话',
+    '私密备忘'
+  ];
+
+  const sampleRow1 = [
+    '信用卡',
+    '招商银行',
+    '经典白金信用卡',
+    '6225881234567890',
+    'ZHANG SAN',
+    '08/29',
+    '821',
+    'UnionPay',
+    '60000',
+    '5000',
+    '7',
+    '25',
+    '否',
+    'swipeCount',
+    '0/6',
+    '95555',
+    '生日月10倍积分'
+  ];
+
+  const sampleRow2 = [
+    '储蓄卡',
+    '工商银行',
+    '薪享工资借记卡',
+    '6212260200018899',
+    'ZHANG SAN',
+    '10/33',
+    '',
+    'UnionPay',
+    '0',
+    '0',
+    '1',
+    '1',
+    '是',
+    'lifetimeFree',
+    '0/0',
+    '95588',
+    '工资代发及理财'
+  ];
+
+  return [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
+}
+
+/**
+ * 解析并导入 CSV 表格数据
+ */
+export function parseCsvToCards(csvText: string, mode: 'merge' | 'overwrite' = 'merge'): { success: boolean; count: number; message: string } {
+  try {
+    // 移除可能存在的 UTF-8 BOM
+    const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+    if (!cleanText) {
+      return { success: false, count: 0, message: 'CSV 内容为空' };
+    }
+
+    const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length <= 1) {
+      return { success: false, count: 0, message: 'CSV 表格缺少有效数据行' };
+    }
+
+    // 简单解析 CSV 行（处理逗号与双引号）
+    const parseRow = (line: string): string[] => {
+      const result: string[] = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(cur.trim());
+          cur = '';
+        } else {
+          cur += char;
+        }
+      }
+      result.push(cur.trim());
+      return result;
+    };
+
+    const dataRows = lines.slice(1);
+    const parsedCards: CardRecord[] = [];
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const cols = parseRow(dataRows[i]);
+      if (cols.length < 3) continue;
+
+      const typeRaw = cols[0]?.toLowerCase() || '';
+      const isDebit = typeRaw.includes('储蓄') || typeRaw.includes('借记') || typeRaw === 'debit';
+      const type: CardRecord['type'] = isDebit ? 'debit' : 'credit';
+
+      const bankName = cols[1] || '其他银行';
+      const cardName = cols[2] || (isDebit ? '储蓄借记卡' : '信用卡');
+      const cardNumber = (cols[3] || '').replace(/[\t\s"']/g, '');
+      const cardholder = cols[4] || '持卡人';
+      
+      const expiry = cols[5] || '12/29';
+      const [m = '12', y = '29'] = expiry.split('/');
+      const cvv = (cols[6] || '').replace(/[\s"']/g, '');
+      const organization = (cols[7] as any) || 'UnionPay';
+      const limit = Number(cols[8]) || 0;
+      const bill = Number(cols[9]) || 0;
+      const stmtDay = Number(cols[10]) || 5;
+      const dueDay = Number(cols[11]) || 25;
+      const isPaid = (cols[12] || '').includes('是') || (cols[12] || '').toLowerCase() === 'true';
+
+      const feeType = (cols[13] as any) || (isDebit ? 'lifetimeFree' : 'swipeCount');
+      const feeProgress = cols[14] || '0/6';
+      const [currentSwipes = 0, targetSwipes = 6] = feeProgress.split('/').map(Number);
+
+      const phone = cols[15] || '';
+      const notes = cols[16] || '';
+
+      parsedCards.push({
+        id: `csv_card_${Date.now()}_${i}`,
+        type,
+        bankName,
+        cardName,
+        cardNumber,
+        cardholder,
+        expiryMonth: m.padStart(2, '0'),
+        expiryYear: y,
+        cvv,
+        organization,
+        cardTier: 'platinum',
+        currency: 'CNY',
+        creditLimit: isDebit ? 0 : limit,
+        balance: isDebit ? limit : 0,
+        statementDay: stmtDay,
+        dueDay: dueDay,
+        dueDayType: 'fixedDay',
+        dueDaysOffset: 20,
+        currentBillAmount: isDebit ? 0 : bill,
+        isBillPaid: isDebit ? true : isPaid,
+        annualFee: {
+          feeType,
+          targetSwipeCount: targetSwipes || 6,
+          currentSwipeCount: currentSwipes || 0,
+          targetSpendAmount: 0,
+          currentSpendAmount: 0,
+          fixedChargeAmount: 0,
+          targetPoints: 0,
+          feeDueDate: '',
+        },
+        swipeTransactions: [],
+        phoneBank: phone,
+        notes,
+        cardColorTheme: 'black-gold',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    if (parsedCards.length === 0) {
+      return { success: false, count: 0, message: '未能从 CSV 中解析出有效卡片信息' };
+    }
+
+    if (mode === 'overwrite') {
+      saveStoredCards(parsedCards);
+      return { success: true, count: parsedCards.length, message: `成功导入 ${parsedCards.length} 张卡片（已覆盖现有卡包）` };
+    } else {
+      const existing = getStoredCards();
+      const map = new Map<string, CardRecord>();
+      existing.forEach(c => map.set(c.cardNumber || c.id, c));
+      parsedCards.forEach(c => map.set(c.cardNumber || c.id, c));
+      const merged = Array.from(map.values());
+      saveStoredCards(merged);
+      return { success: true, count: parsedCards.length, message: `成功解析导入 ${parsedCards.length} 张卡片，现有总卡数：${merged.length}` };
+    }
+  } catch (err: any) {
+    return { success: false, count: 0, message: `CSV 解析失败: ${err.message}` };
+  }
+}
+

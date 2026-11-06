@@ -26,6 +26,7 @@ import { BillCalendarView } from './components/BillCalendarView';
 import { StatsOverview } from './components/StatsOverview';
 import { CardModal } from './components/CardModal';
 import { CardDetailModal } from './components/CardDetailModal';
+import { CardScanModal } from './components/CardScanModal';
 import { QuickSwipeModal } from './components/QuickSwipeModal';
 import { QuickRepayModal } from './components/QuickRepayModal';
 import { DataManagementModal } from './components/DataManagementModal';
@@ -59,6 +60,7 @@ export default function App() {
   const [isRepayModalOpen, setIsRepayModalOpen] = useState(false);
 
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
 
   // Sync theme
@@ -239,6 +241,7 @@ export default function App() {
           setEditingCard(null);
           setIsCardModalOpen(true);
         }}
+        onOpenCardScan={() => setIsScanModalOpen(true)}
         onOpenDataModal={() => setIsDataModalOpen(true)}
         hasPin={Boolean(settings.pinCode)}
         onLockApp={handleLockApp}
@@ -427,13 +430,19 @@ export default function App() {
                     重置所有筛选条件
                   </button>
                   <button
+                    onClick={() => setIsScanModalOpen(true)}
+                    className="px-4 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 dark:bg-amber-500 text-neutral-950 text-xs font-semibold shadow-xs transition-colors"
+                  >
+                    📷 拍照提取卡片
+                  </button>
+                  <button
                     onClick={() => {
                       setEditingCard(null);
                       setIsCardModalOpen(true);
                     }}
                     className="px-4 py-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity"
                   >
-                    + 添加新卡片
+                    + 手动录入
                   </button>
                 </div>
               </div>
@@ -549,12 +558,23 @@ export default function App() {
         onSave={handleSaveCard}
       />
 
-      {/* 5. Data Management & Backup Modal */}
+      {/* 5. Card Photo OCR Scan Modal (Confirm before import) */}
+      <CardScanModal
+        isOpen={isScanModalOpen}
+        onClose={() => setIsScanModalOpen(false)}
+        onConfirmImport={handleSaveCard}
+      />
+
+      {/* 6. Data Management & Backup Modal (JSON, CSV, Template) */}
       <DataManagementModal
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
         cards={cards}
         onDataChanged={updateCards}
+        onOpenCardScan={() => {
+          setIsDataModalOpen(false);
+          setIsScanModalOpen(true);
+        }}
       />
 
       {/* 6. PIN Screen Lock & Setup Modal */}
