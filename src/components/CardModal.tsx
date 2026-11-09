@@ -5,6 +5,7 @@ import {
   POPULAR_BANKS, BANK_CONFIGS, THEME_GRADIENTS, 
   detectCardOrganization, formatCardNumber 
 } from '../utils/bankData';
+import { parseAnnualFeePolicy } from '../utils/storage';
 
 interface CardModalProps {
   isOpen: boolean;
@@ -145,6 +146,17 @@ export const CardModal: React.FC<CardModalProps> = ({
     if (raw.length >= 2) {
       setOrganization(detectCardOrganization(raw));
     }
+  };
+
+  const handleApplyNaturalLanguagePolicy = (text: string) => {
+    if (!text.trim()) return;
+    const res = parseAnnualFeePolicy(text);
+    setFeeType(res.feeType);
+    if (res.targetSwipeCount) setTargetSwipeCount(res.targetSwipeCount);
+    if (res.targetSpendAmount) setTargetSpendAmount(res.targetSpendAmount);
+    if (res.fixedChargeAmount) setFixedChargeAmount(res.fixedChargeAmount);
+    if (res.targetPoints) setTargetPoints(res.targetPoints);
+    setFeeNotes(text);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -553,9 +565,33 @@ export const CardModal: React.FC<CardModalProps> = ({
           {/* 7. 信用卡年费达标政策 (重要支持点) */}
           {type === 'credit' && (
             <div className="p-4 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-4">
-              <div className="font-semibold text-xs text-neutral-900 dark:text-white flex items-center gap-1.5">
-                <Shield className="w-4 h-4 text-amber-500" />
-                <span>年费减免政策与追踪设定</span>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-xs text-neutral-900 dark:text-white flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-amber-500" />
+                  <span>年费减免政策与追踪设定</span>
+                </div>
+                <span className="text-[10px] text-neutral-400">支持快捷套用或在下方自由配置</span>
+              </div>
+
+              {/* 常用年费规则快捷芯片 */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-neutral-500">快捷套用:</span>
+                {[
+                  '刷满6次免年费',
+                  '每年消费满2万元免',
+                  '10000积分兑换',
+                  '刚性年费3600元',
+                  '终身免年费',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => handleApplyNaturalLanguagePolicy(chip)}
+                    className="px-2 py-0.5 rounded bg-neutral-200/80 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[10px] transition-colors"
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
