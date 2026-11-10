@@ -598,7 +598,12 @@ export default function App() {
         isOpen={isDataModalOpen}
         onClose={() => setIsDataModalOpen(false)}
         cards={cards}
-        onDataChanged={updateCards}
+        onDataChanged={(newCards) => {
+          updateCards(newCards);
+          setSearchQuery('');
+          setFilterType('all');
+          setSelectedBank('all');
+        }}
         onOpenCardScan={() => {
           setIsDataModalOpen(false);
           setIsScanModalOpen(true);

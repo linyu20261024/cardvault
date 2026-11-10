@@ -64,8 +64,20 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
                         <span className="text-[10px] text-neutral-400">·</span>
                         <span>{card.cardName}</span>
                       </div>
-                      <div className="text-[11px] text-neutral-400">
-                        {card.cardholder} · {card.organization}
+                      <div className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                        <span>{card.organization}</span>
+                        {card.type === 'credit' && (
+                          <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${
+                            card.isSharedLimit !== false 
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' 
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                          }`}>
+                            {card.isSharedLimit !== false ? '同行共享' : '独立额度'}
+                          </span>
+                        )}
+                        {!privacyMode && card.cardholder && card.cardholder !== '本人' && (
+                          <span>· {card.cardholder}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -135,7 +147,17 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
                   {card.type === 'credit' ? (
                     <div className="text-[11px]">
                       <div>账单日: 每月 <span className="font-mono font-semibold">{card.statementDay}</span> 号</div>
-                      <div className="text-neutral-500">还款日: 每月 <span className="font-mono font-semibold">{card.dueDay}</span> 号</div>
+                      <div className="text-neutral-500 flex items-center gap-1">
+                        <span>还款: </span>
+                        <span className="font-mono font-medium text-neutral-800 dark:text-neutral-200">
+                          {card.dueDayType === 'daysAfterStatement' ? `后${card.dueDaysOffset || 20}天 (${bill.dueDateStr})` : `每月${card.dueDay}号`}
+                        </span>
+                        {bill.isCrossMonth && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-500/20">
+                            跨月
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <span className="text-neutral-400">实时到账</span>

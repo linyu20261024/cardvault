@@ -37,7 +37,7 @@ export interface CardRecord {
   bankName: string;
   cardName: string;              // 卡片名称（例如：经典白金卡、工银黑金卡、薪享一卡通）
   cardNumber: string;            // 完整卡号
-  cardholder: string;            // 持卡人姓名
+  cardholder?: string;           // 持卡人标识 (选填，隐私保护可留空或填“本人”)
   expiryMonth: string;           // 有效期月份 (01-12)
   expiryYear: string;            // 有效期年份 (YY 或 YYYY)
   cvv: string;                   // 安全码 (CVV/CVC 3-4位)
@@ -46,6 +46,10 @@ export interface CardRecord {
   currency: string;              // 币种 (CNY, USD, HKD, EUR等)
   creditLimit: number;           // 信用额度 (信用卡专属)
   balance: number;               // 余额 (储蓄卡) 或 可用额度 (信用卡)
+  
+  // 额度共享设置 (同银行多卡额度共享)
+  isSharedLimit?: boolean;       // 是否与该行其他信用卡共享额度 (默认为 true)
+  sharedLimitGroupId?: string;   // 共享额度组标识 (默认同银行归为一组)
   
   // 账单与还款信息
   statementDay: number;          // 每月账单日 (1-31)

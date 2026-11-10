@@ -122,7 +122,12 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono">
                   <div className="p-2 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200/60 dark:border-neutral-700/60">
-                    <div className="text-[10px] text-neutral-400">总信用额度</div>
+                    <div className="text-[10px] text-neutral-400 flex items-center justify-between">
+                      <span>总信用额度</span>
+                      <span className="text-[9px] text-amber-600 dark:text-amber-400 font-sans font-medium">
+                        {card.isSharedLimit !== false ? '同行共享' : '独立额度'}
+                      </span>
+                    </div>
                     <div className="text-sm font-bold text-neutral-900 dark:text-white mt-0.5">
                       {privacyMode ? '¥ ****' : formatMoney(card.creditLimit)}
                     </div>
@@ -140,9 +145,19 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
                     </div>
                   </div>
                   <div className="p-2 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200/60 dark:border-neutral-700/60">
-                    <div className="text-[10px] text-neutral-400">还款截止日</div>
+                    <div className="text-[10px] text-neutral-400 flex items-center justify-between">
+                      <span>还款截止日</span>
+                      {bill.isCrossMonth && (
+                        <span className="text-[9px] px-1 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold border border-indigo-500/20">
+                          跨月
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-0.5">
                       {bill.dueDateStr}
+                    </div>
+                    <div className="text-[10px] text-neutral-400 truncate" title={bill.ruleDescription}>
+                      {bill.dueDateDisplay}
                     </div>
                   </div>
                 </div>

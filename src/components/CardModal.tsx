@@ -6,6 +6,7 @@ import {
   detectCardOrganization, formatCardNumber 
 } from '../utils/bankData';
 import { parseAnnualFeePolicy } from '../utils/storage';
+import { computeDueDateForStatement } from '../utils/cardCalculations';
 
 interface CardModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   const [balance, setBalance] = useState('50000');
   const [currentBillAmount, setCurrentBillAmount] = useState('0');
   const [isBillPaid, setIsBillPaid] = useState(true);
+  const [isSharedLimit, setIsSharedLimit] = useState(true);
   
   // Dates
   const [statementDay, setStatementDay] = useState(5);
@@ -69,7 +71,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       setBankName(initialCard.bankName);
       setCardName(initialCard.cardName);
       setCardNumber(initialCard.cardNumber);
-      setCardholder(initialCard.cardholder);
+      setCardholder(initialCard.cardholder || '');
       setExpiryMonth(initialCard.expiryMonth || '12');
       setExpiryYear(initialCard.expiryYear || '29');
       setCvv(initialCard.cvv || '');
@@ -77,6 +79,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       setCardTier(initialCard.cardTier);
       setCardColorTheme(initialCard.cardColorTheme || 'black-gold');
       setCreditLimit(String(initialCard.creditLimit || '0'));
+      setIsSharedLimit(initialCard.isSharedLimit !== false);
       setBalance(String(initialCard.balance || '0'));
       setCurrentBillAmount(String(initialCard.currentBillAmount || '0'));
       setIsBillPaid(Boolean(initialCard.isBillPaid));
@@ -106,7 +109,8 @@ export const CardModal: React.FC<CardModalProps> = ({
       setBankName('招商银行');
       setCardName('');
       setCardNumber('');
-      setCardholder('ZHANG SAN');
+      setCardholder(''); // 保护个人隐私，默认留空
+      setIsSharedLimit(true); // 默认同行共享
       setExpiryMonth('12');
       setExpiryYear('29');
       setCvv('');
@@ -129,13 +133,16 @@ export const CardModal: React.FC<CardModalProps> = ({
     }
   }, [initialCard, isOpen]);
 
-  // When bank changes, auto populate customer phone
+  // When bank changes, auto populate customer phone and default repayment rule
   const handleBankChange = (bName: string) => {
     setBankName(bName);
     const cfg = BANK_CONFIGS[bName];
     if (cfg) {
       if (cfg.phone) setPhoneBank(cfg.phone);
-      if (cfg.defaultDueOffset) setDueDaysOffset(cfg.defaultDueOffset);
+      if (cfg.defaultDueOffset) {
+        setDueDayType('daysAfterStatement');
+        setDueDaysOffset(cfg.defaultDueOffset);
+      }
     }
   };
 
@@ -169,7 +176,8 @@ export const CardModal: React.FC<CardModalProps> = ({
       bankName: finalBank,
       cardName: cardName.trim() || (type === 'credit' ? '白金信用卡' : '储蓄借记卡'),
       cardNumber: cardNumber.trim(),
-      cardholder: cardholder.trim() || '持卡人',
+      cardholder: cardholder.trim() || '', // 保护隐私，选填
+      isSharedLimit: type === 'credit' ? isSharedLimit : false,
       expiryMonth,
       expiryYear,
       cvv: cvv.trim(),
@@ -329,15 +337,16 @@ export const CardModal: React.FC<CardModalProps> = ({
           {/* 4. 持卡人、有效期、CVV、等级 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                持卡人
+              <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 flex items-center justify-between">
+                <span>持卡人</span>
+                <span className="text-[9px] text-neutral-400 font-normal">选填/可留空</span>
               </label>
               <input
                 type="text"
-                placeholder="ZHANG SAN"
+                placeholder="留空或填“本人”"
                 value={cardholder}
                 onChange={(e) => setCardholder(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white uppercase"
+                className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white uppercase text-xs"
               />
             </div>
 
@@ -429,15 +438,31 @@ export const CardModal: React.FC<CardModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                    总信用额度 (元)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                      总信用额度 (元)
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer text-[10px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white select-none">
+                      <input
+                        type="checkbox"
+                        checked={isSharedLimit}
+                        onChange={(e) => setIsSharedLimit(e.target.checked)}
+                        className="rounded text-neutral-900"
+                      />
+                      <span>同行共享额度</span>
+                    </label>
+                  </div>
                   <input
                     type="number"
                     value={creditLimit}
                     onChange={(e) => setCreditLimit(e.target.value)}
                     className="w-full px-3 py-1.5 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg font-mono text-neutral-900 dark:text-white"
                   />
+                  <div className="text-[10px] text-neutral-400">
+                    {isSharedLimit 
+                      ? '💡 同银行多卡共享同一额度池，统计时将自动去重合并真实总授信。' 
+                      : '⚡ 独立专属额度：不与同银行其他卡共享，单独累加总授信。'}
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -524,6 +549,36 @@ export const CardModal: React.FC<CardModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* 实时推算还款日与跨月预览 */}
+              {(() => {
+                const previewStmtDate = new Date();
+                previewStmtDate.setDate(statementDay || 1);
+                const previewDue = computeDueDateForStatement(previewStmtDate, {
+                  statementDay: statementDay || 1,
+                  dueDayType,
+                  dueDaysOffset: dueDaysOffset || 20,
+                  dueDay: dueDay || 25,
+                });
+
+                return (
+                  <div className="p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 text-[11px] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-neutral-600 dark:text-neutral-300">
+                      <span className="font-semibold text-neutral-900 dark:text-white">📅 还款日推算预览:</span>
+                      <span>每月{statementDay}号出账 ➔ <strong>{previewDue.displayStr}</strong></span>
+                    </div>
+                    {previewDue.isCrossMonth ? (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-semibold text-[10px] border border-indigo-500/30">
+                        ⚡ 跨月还款
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-medium text-[10px]">
+                        当月还款
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 是否已还清勾选 */}
               <div className="flex items-center gap-2 pt-1">

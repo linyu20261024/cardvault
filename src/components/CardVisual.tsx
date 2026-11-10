@@ -90,6 +90,11 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5">
+                {card.type === 'credit' && card.isSharedLimit !== false && (
+                  <span className="text-[9px] tracking-wider font-medium text-amber-300 px-1 py-0.5 rounded border border-amber-300/20 bg-amber-500/10" title="与该发卡行其他信用卡共享总额度">
+                    同行共享
+                  </span>
+                )}
                 <span className="text-[10px] tracking-wider uppercase font-semibold text-white/60 px-1.5 py-0.5 rounded border border-white/10 bg-white/5">
                   {card.type === 'credit' ? `${card.cardTier} · 信用卡` : '储蓄借记卡'}
                 </span>
@@ -139,7 +144,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               <div>
                 <div className="text-[9px] text-white/50 uppercase tracking-widest font-semibold">Cardholder</div>
                 <div className="text-xs font-mono font-medium tracking-wide text-white/90 truncate max-w-[140px]">
-                  {card.cardholder || 'VALUED CUSTOMER'}
+                  {privacyMode ? 'CARD VAULT' : (card.cardholder && card.cardholder !== '本人' ? card.cardholder : 'CARD VAULT')}
                 </div>
               </div>
 
@@ -267,6 +272,24 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             </>
           )}
         </div>
+
+        {/* Repayment Date & Cross-month Notice */}
+        {card.type === 'credit' && (
+          <div className="flex items-center justify-between text-[11px] text-neutral-500 pt-0.5">
+            <div className="flex items-center gap-1.5">
+              <span>还款日:</span>
+              <span className="font-mono text-neutral-800 dark:text-neutral-200 font-medium">
+                {billInfo.dueDateDisplay}
+              </span>
+              {billInfo.isCrossMonth && (
+                <span className="px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[9px] font-semibold border border-indigo-500/20">
+                  跨月
+                </span>
+              )}
+            </div>
+            <span className="text-[10px]">今日刷卡免息 {billInfo.todayGracePeriodDays}天</span>
+          </div>
+        )}
 
         {/* Quick action toolbar */}
         <div className="flex items-center justify-between pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">

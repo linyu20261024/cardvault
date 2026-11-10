@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { CardRecord, StorageSettings, AnnualFeePolicy, AnnualFeeType } from '../types/card';
+import { normalizeBankName, normalizePerson, BANK_CONFIGS } from './bankData';
 
 const CARDS_STORAGE_KEY = 'cardvault_cards_v1';
 const SETTINGS_STORAGE_KEY = 'cardvault_settings_v1';
@@ -550,22 +551,26 @@ export function importCardsFromJson(jsonStr: string, mode: 'overwrite' | 'merge'
 /**
  * 标准表格列头定义（Excel 与 CSV 统一）
  */
+/**
+ * 标准表格列头定义（Excel 与 CSV 统一）
+ */
 export const SPREADSHEET_COLUMNS = [
   '类型(信用卡/储蓄卡)',
   '发卡银行',
   '卡片名称',
   '银行卡号',
-  '持卡人姓名',
-  '有效期(MM/YY)',
-  '安全码(CVV)',
-  '卡组织(UnionPay/Visa/Mastercard)',
+  '额度性质(共享额度/独立额度)',
   '信用额度',
   '本期账单金额',
   '每月账单日(1-31)',
-  '每月还款日(1-31)',
+  '每月还款日(如: 账单日后18天 或 每月25号)',
   '本期已还(是/否)',
   '年费规则(支持任意自然语言描述，如: 刷6次免年费 / 消费满2万免 / 刚性3600元 / 终身免费)',
   '年费已刷/目标(如 0/6 或 3/6)',
+  '有效期(MM/YY)',
+  '安全码(CVV)',
+  '卡组织(UnionPay/Visa/Mastercard)',
+  '持卡人(选填，注重隐私可直接留空)',
   '客服电话',
   '私密备忘'
 ];
@@ -579,17 +584,20 @@ function cardsToRows(cards: CardRecord[]): any[][] {
     c.bankName,
     c.cardName,
     c.cardNumber, // Excel 单元格会设为文本格式，防止大数字科学计数法
-    c.cardholder,
-    `${c.expiryMonth}/${c.expiryYear}`,
-    c.cvv || '',
-    c.organization,
+    c.type === 'credit' ? (c.isSharedLimit !== false ? '共享额度' : '独立额度') : '无',
     c.type === 'credit' ? c.creditLimit : 0,
     c.type === 'credit' ? c.currentBillAmount : 0,
     c.statementDay,
-    c.dueDay,
+    c.type === 'credit' 
+      ? (c.dueDayType === 'daysAfterStatement' ? `账单日后${c.dueDaysOffset || 20}天` : `每月${c.dueDay}号`)
+      : '实时到账',
     c.isBillPaid ? '是' : '否',
     c.annualFee.notes || (c.annualFee.feeType === 'swipeCount' ? `刷满${c.annualFee.targetSwipeCount}次免年费` : c.annualFee.feeType),
     c.annualFee.feeType === 'swipeCount' ? `${c.annualFee.currentSwipeCount}/${c.annualFee.targetSwipeCount}` : '',
+    `${c.expiryMonth}/${c.expiryYear}`,
+    c.cvv || '',
+    c.organization,
+    c.cardholder || '', // 隐私保护：支持留空
     c.phoneBank || '',
     c.notes || ''
   ]);
@@ -609,17 +617,18 @@ export function exportCardsToExcelBlob(cards: CardRecord[]): Blob {
     { wch: 14 }, // 发卡银行
     { wch: 22 }, // 卡片名称
     { wch: 24 }, // 银行卡号
-    { wch: 14 }, // 持卡人姓名
-    { wch: 14 }, // 有效期
-    { wch: 12 }, // CVV
-    { wch: 14 }, // 卡组织
+    { wch: 16 }, // 额度性质
     { wch: 14 }, // 信用额度
     { wch: 14 }, // 本期账单金额
     { wch: 14 }, // 账单日
-    { wch: 14 }, // 还款日
+    { wch: 22 }, // 还款日规则
     { wch: 12 }, // 本期已还
     { wch: 38 }, // 年费规则
     { wch: 16 }, // 年费已刷/目标
+    { wch: 14 }, // 有效期
+    { wch: 12 }, // CVV
+    { wch: 14 }, // 卡组织
+    { wch: 16 }, // 持卡人
     { wch: 14 }, // 客服电话
     { wch: 32 }, // 私密备忘
   ];
@@ -640,17 +649,18 @@ export function getStandardExcelTemplateBlob(): Blob {
     '招商银行',
     '经典白金信用卡',
     '6225881234567890',
-    'ZHANG SAN',
-    '08/29',
-    '821',
-    'UnionPay',
+    '共享额度',
     60000,
     5820.5,
     7,
-    25,
+    '账单日后18天 (次月到期)',
     '否',
     '10000积分兑换次年年费，主卡赠送洗车与体检',
     '0/10000',
+    '08/29',
+    '821',
+    'UnionPay',
+    '本人', // 隐私保护：可留空或填本人
     '95555',
     '生日月10倍积分'
   ];
@@ -660,17 +670,18 @@ export function getStandardExcelTemplateBlob(): Blob {
     '工商银行',
     '工银黑金白金卡',
     '6222029988776655',
-    'ZHANG SAN',
-    '11/30',
-    '914',
-    'UnionPay',
+    '共享额度',
     100000,
     12000,
     1,
-    25,
+    '账单日后25天',
     '是',
     '刷满5笔免次年年费 (自然语言随意填写即可)',
     '4/5',
+    '11/30',
+    '914',
+    'UnionPay',
+    '', // 隐私保护：留空示例
     '95588',
     '差1笔达标'
   ];
@@ -680,17 +691,18 @@ export function getStandardExcelTemplateBlob(): Blob {
     '招商银行',
     '一卡通工资借记卡',
     '6225880011223388',
-    'ZHANG SAN',
-    '12/35',
-    '',
-    'UnionPay',
+    '无',
     0,
     0,
     1,
-    1,
+    '实时到账',
     '是',
     '终身免年费',
     '0/0',
+    '12/35',
+    '',
+    'UnionPay',
+    '', // 留空
     '95555',
     '工资卡与房贷扣款'
   ];
@@ -705,10 +717,10 @@ export function getStandardExcelTemplateBlob(): Blob {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [
     { wch: 16 }, { wch: 14 }, { wch: 22 }, { wch: 24 },
-    { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-    { wch: 12 }, { wch: 38 }, { wch: 16 }, { wch: 14 },
-    { wch: 32 }
+    { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 22 }, { wch: 12 }, { wch: 38 }, { wch: 16 },
+    { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 16 },
+    { wch: 14 }, { wch: 32 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, '卡片批量维护模板');
@@ -725,17 +737,18 @@ export function exportCardsToCsv(cards: CardRecord[]): string {
     `"${c.bankName}"`,
     `"${c.cardName}"`,
     `"\t${c.cardNumber}"`, // 前置Tab强行阻止Excel将长卡号吃成科学计数法
-    `"${c.cardholder}"`,
-    `"${c.expiryMonth}/${c.expiryYear}"`,
-    `"${c.cvv || ''}"`,
-    `"${c.organization}"`,
+    `"${c.type === 'credit' ? (c.isSharedLimit !== false ? '共享额度' : '独立额度') : '无'}"`,
     c.creditLimit,
     c.currentBillAmount,
     c.statementDay,
-    c.dueDay,
+    c.type === 'credit' ? `"${c.dueDayType === 'daysAfterStatement' ? `账单日后${c.dueDaysOffset || 20}天` : `每月${c.dueDay}号`}"` : '"实时到账"',
     c.isBillPaid ? '是' : '否',
     `"${(c.annualFee.notes || c.annualFee.feeType).replace(/"/g, '""')}"`,
     `"${c.annualFee.currentSwipeCount}/${c.annualFee.targetSwipeCount}"`,
+    `"${c.expiryMonth}/${c.expiryYear}"`,
+    `"${c.cvv || ''}"`,
+    `"${c.organization}"`,
+    `"${c.cardholder || ''}"`,
     `"${c.phoneBank || ''}"`,
     `"${(c.notes || '').replace(/"/g, '""')}"`
   ]);
@@ -752,17 +765,18 @@ export function getStandardCsvTemplate(): string {
     '招商银行',
     '经典白金信用卡',
     '6225881234567890',
-    'ZHANG SAN',
-    '08/29',
-    '821',
-    'UnionPay',
+    '共享额度',
     '60000',
     '5000',
     '7',
-    '25',
+    '账单日后18天',
     '否',
     '10000积分兑换次年年费',
     '0/10000',
+    '08/29',
+    '821',
+    'UnionPay',
+    '本人',
     '95555',
     '生日月10倍积分'
   ];
@@ -772,17 +786,18 @@ export function getStandardCsvTemplate(): string {
     '工商银行',
     '工银黑金白金卡',
     '6222029988776655',
-    'ZHANG SAN',
-    '11/30',
-    '914',
-    'UnionPay',
+    '共享额度',
     '100000',
     '12000',
     '1',
-    '25',
+    '账单日后25天',
     '是',
     '刷满5笔免次年年费 (自然语言随意填写即可)',
     '4/5',
+    '11/30',
+    '914',
+    'UnionPay',
+    '',
     '95588',
     '差1笔达标'
   ];
@@ -792,17 +807,18 @@ export function getStandardCsvTemplate(): string {
     '招商银行',
     '一卡通工资借记卡',
     '6225880011223388',
-    'ZHANG SAN',
-    '12/35',
-    '',
-    'UnionPay',
+    '无',
     '0',
     '0',
     '1',
-    '1',
+    '实时到账',
     '是',
     '终身免年费',
     '0/0',
+    '12/35',
+    '',
+    'UnionPay',
+    '',
     '95555',
     '工资与理财'
   ];
@@ -813,66 +829,188 @@ export function getStandardCsvTemplate(): string {
 /**
  * 统一解析 2D 数组行到卡片对象
  */
-export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite' = 'merge'): { success: boolean; count: number; message: string } {
+/**
+ * 统一解析 2D 数组行到卡片对象（搭载智能动态表头映射与容错机制）
+ */
+export function parseTableRowsToCards(
+  rows: any[][], 
+  mode: 'merge' | 'overwrite' = 'merge'
+): { success: boolean; count: number; message: string; cards: CardRecord[] } {
   if (!rows || rows.length === 0) {
-    return { success: false, count: 0, message: '表格为空，未检测到任何数据' };
+    return { success: false, count: 0, message: '表格为空，未检测到任何数据', cards: [] };
   }
 
-  // 过滤空行
+  // 过滤全空行
   const validRows = rows.filter(r => r && r.length > 0 && r.some(cell => cell !== null && cell !== undefined && String(cell).trim() !== ''));
   if (validRows.length === 0) {
-    return { success: false, count: 0, message: '表格中无有效数据行' };
+    return { success: false, count: 0, message: '表格中无有效数据行', cards: [] };
   }
 
-  // 识别第一行是否为表头
-  let dataRows = validRows;
-  const firstRowStr = validRows[0].map(c => String(c || '').trim()).join(' ');
-  if (/类型|发卡银行|银行|卡名称|卡号|持卡人/.test(firstRowStr)) {
-    dataRows = validRows.slice(1);
+  // 1. 智能定位表头行并映射列名（扫描前 5 行，支持任意列顺序、增删列）
+  let headerRowIndex = -1;
+  const colMap: Record<string, number> = {};
+
+  for (let r = 0; r < Math.min(5, validRows.length); r++) {
+    const rowCells = validRows[r].map(c => String(c || '').trim().toLowerCase());
+    const hasBank = rowCells.some(c => /银行|发卡行|bank/i.test(c));
+    const hasCardNum = rowCells.some(c => /卡号|number|card_no/i.test(c));
+    const hasType = rowCells.some(c => /类型|卡种|type/i.test(c));
+    const hasLimit = rowCells.some(c => /额度|limit|授信/i.test(c));
+
+    if ((hasBank && hasCardNum) || (hasBank && hasType) || (hasCardNum && hasLimit) || (hasBank && hasLimit)) {
+      headerRowIndex = r;
+      rowCells.forEach((c, idx) => {
+        if (/类型|卡种|type/i.test(c) && colMap['type'] === undefined) colMap['type'] = idx;
+        else if (/银行|发卡行|bank/i.test(c) && colMap['bank'] === undefined) colMap['bank'] = idx;
+        else if (/卡片名称|卡名|卡产品|名称|name/i.test(c) && colMap['cardName'] === undefined) colMap['cardName'] = idx;
+        else if (/卡号|银行卡号|number|card_no/i.test(c) && colMap['cardNumber'] === undefined) colMap['cardNumber'] = idx;
+        else if (/共享|额度性质|是否共享|shared/i.test(c) && colMap['isSharedLimit'] === undefined) colMap['isSharedLimit'] = idx;
+        else if (/(?:^|\s|信用|总)额度|授信|limit/i.test(c) && colMap['limit'] === undefined) colMap['limit'] = idx;
+        else if (/账单金额|应还|当前账单|bill/i.test(c) && colMap['bill'] === undefined) colMap['bill'] = idx;
+        else if (/账单日|对账单日|stmt/i.test(c) && colMap['stmtDay'] === undefined) colMap['stmtDay'] = idx;
+        else if (/还款日|到期还款日|还款规则|还款|due/i.test(c) && colMap['dueDay'] === undefined) colMap['dueDay'] = idx;
+        else if (/已还|是否还清|paid/i.test(c) && colMap['isPaid'] === undefined) colMap['isPaid'] = idx;
+        else if (/年费规则|年费政策|年费|减免|政策|fee/i.test(c) && colMap['annualFee'] === undefined) colMap['annualFee'] = idx;
+        else if (/已刷|进度|刷卡次数|progress/i.test(c) && colMap['feeProgress'] === undefined) colMap['feeProgress'] = idx;
+        else if (/有效期|到期|expiry|exp/i.test(c) && colMap['expiry'] === undefined) colMap['expiry'] = idx;
+        else if (/安全码|cvv|cvc/i.test(c) && colMap['cvv'] === undefined) colMap['cvv'] = idx;
+        else if (/卡组织|组织|org/i.test(c) && colMap['organization'] === undefined) colMap['organization'] = idx;
+        else if (/持卡人|姓名|holder/i.test(c) && colMap['cardholder'] === undefined) colMap['cardholder'] = idx;
+        else if (/电话|客服|热线|phone/i.test(c) && colMap['phone'] === undefined) colMap['phone'] = idx;
+        else if (/备注|备忘|说明|notes/i.test(c) && colMap['notes'] === undefined) colMap['notes'] = idx;
+      });
+      break;
+    }
   }
 
+  // 确定数据行
+  const dataRows = headerRowIndex >= 0 ? validRows.slice(headerRowIndex + 1) : validRows;
   const parsedCards: CardRecord[] = [];
 
   for (let i = 0; i < dataRows.length; i++) {
-    const cols = dataRows[i].map(c => (c === null || c === undefined ? '' : String(c).trim()));
-    if (cols.length < 2) continue;
+    const row = dataRows[i];
+    // 过滤模板中的注释或说明行
+    const rowStr = row.map(c => String(c || '').trim()).join(' ');
+    if (/^#|示例|范例|提示说明|sample/i.test(rowStr)) continue;
 
-    const typeRaw = cols[0]?.toLowerCase() || '';
+    // 取值辅助函数（优先按列头名称映射，未匹配时按位置降级）
+    const getVal = (key: string, fallbackIdx: number): string => {
+      const idx = colMap[key] !== undefined ? colMap[key] : fallbackIdx;
+      return idx >= 0 && row[idx] !== null && row[idx] !== undefined ? String(row[idx]).trim() : '';
+    };
+
+    const typeRaw = getVal('type', 0).toLowerCase();
     const isDebit = typeRaw.includes('储蓄') || typeRaw.includes('借记') || typeRaw === 'debit';
     const type: CardRecord['type'] = isDebit ? 'debit' : 'credit';
 
-    const bankName = cols[1] || '其他银行';
-    const cardName = cols[2] || (isDebit ? '储蓄借记卡' : '信用卡');
+    // 银行名称归一化清洗：将“中国工商银行”、“工行”等统一规范为核心银行名，确保同行共享额度不被重复计算
+    const rawBank = getVal('bank', 1) || '其他银行';
+    const bankName = normalizeBankName(rawBank);
+    const cardName = getVal('cardName', 2) || (isDebit ? '储蓄借记卡' : '信用卡');
     
-    // 清理卡号：去掉制表符、单双引号、空格，并处理科学计数法
-    let cardNumber = (cols[3] || '').replace(/[\t\s"']/g, '');
+    // 清理卡号：去掉制表符、单双引号、空格，并处理大数字科学计数法
+    let cardNumber = getVal('cardNumber', 3).replace(/[\t\s"']/g, '');
     if (/^\d+(\.\d+)?[eE]\+\d+$/.test(cardNumber)) {
       try {
         cardNumber = BigInt(Math.round(Number(cardNumber))).toString();
       } catch {}
     }
 
-    const cardholder = cols[4] || '持卡人';
-    const expiry = cols[5] || '12/29';
+    // 若没有任何有效卡号、卡名或银行，则视为无效空行跳过
+    if (!cardNumber && !getVal('bank', 1) && !getVal('cardName', 2)) {
+      continue;
+    }
+
+    // 额度共享性质：同行信用卡默认共享（除非写了“独立”）
+    const sharedRaw = getVal('isSharedLimit', 4);
+    const isSharedLimit = sharedRaw.includes('独立') ? false : true;
+
+    // 持卡人：完全选填，保护隐私支持留空或“本人”
+    const rawHolder = getVal('cardholder', 15);
+    const cardholder = rawHolder && rawHolder.trim() !== '本人' ? rawHolder.trim() : '';
+
+    const expiry = getVal('expiry', 12) || '12/29';
     const [m = '12', y = '29'] = expiry.split('/');
-    const cvv = (cols[6] || '').replace(/[\s"']/g, '');
+    const cvv = getVal('cvv', 13).replace(/[\s"']/g, '');
     
-    let organization = cols[7] || 'UnionPay';
+    let organization = getVal('organization', 14) || 'UnionPay';
     if (/visa/i.test(organization)) organization = 'Visa';
     else if (/master/i.test(organization)) organization = 'Mastercard';
     else if (/amex|american/i.test(organization)) organization = 'American Express';
     else if (/jcb/i.test(organization)) organization = 'JCB';
     else organization = 'UnionPay';
 
-    const limit = Number(cols[8]) || 0;
-    const bill = Number(cols[9]) || 0;
-    const stmtDay = Number(cols[10]) || 5;
-    const dueDay = Number(cols[11]) || 25;
-    const isPaid = (cols[12] || '').includes('是') || (cols[12] || '').toLowerCase() === 'true';
+    const limit = Number(getVal('limit', 5)) || 0;
+    const bill = Number(getVal('bill', 6)) || 0;
+    const stmtDay = Math.min(31, Math.max(1, Number(getVal('stmtDay', 7)) || 5));
+
+    // -------------------------------------------------------------
+    // 智能还款日解析：全面适配“账单日后固定天数（如18天/25天/20天）”与跨月还款
+    // 支持填写："账单日后18天", "后25天", "+20天", "18天", "次月13号", 或纯数字 18 / 13 / 25
+    // -------------------------------------------------------------
+    const dueRaw = getVal('dueDay', 8).trim();
+    let dueDayType: 'fixedDay' | 'daysAfterStatement' = 'fixedDay';
+    let dueDaysOffset = 20;
+    let dueDay = 25;
+
+    const bankCfg = BANK_CONFIGS[bankName];
+    const defaultOffset = bankCfg?.defaultDueOffset || 20;
+
+    const offsetMatch = dueRaw.match(/(?:账单(?:日)?后|后|\+)?\s*(\d+)\s*天?/);
+    if (/天|offset|after/i.test(dueRaw) || /账单(?:日)?后|后\d+/i.test(dueRaw)) {
+      dueDayType = 'daysAfterStatement';
+      if (offsetMatch && offsetMatch[1]) {
+        dueDaysOffset = parseInt(offsetMatch[1], 10);
+      } else {
+        dueDaysOffset = defaultOffset;
+      }
+      dueDay = ((stmtDay - 1 + dueDaysOffset) % 30) + 1;
+    } else {
+      const numMatch = dueRaw.match(/\d+/);
+      const parsedNum = numMatch ? parseInt(numMatch[0], 10) : NaN;
+
+      if (!isNaN(parsedNum)) {
+        if (parsedNum > 31) {
+          dueDayType = 'daysAfterStatement';
+          dueDaysOffset = parsedNum;
+          dueDay = ((stmtDay - 1 + dueDaysOffset) % 30) + 1;
+        } else {
+          // 数字在 1-31 之间
+          if (bankCfg && bankCfg.defaultDueOffset && (parsedNum === bankCfg.defaultDueOffset || parsedNum < stmtDay)) {
+            dueDayType = 'daysAfterStatement';
+            if (parsedNum === bankCfg.defaultDueOffset) {
+              dueDaysOffset = bankCfg.defaultDueOffset;
+              dueDay = ((stmtDay - 1 + dueDaysOffset) % 30) + 1;
+            } else {
+              // 跨月到次月 parsedNum 号，计算天数差（例如账单日25号，还款日13号 -> 约18天）
+              const estOffset = (30 - stmtDay) + parsedNum;
+              dueDaysOffset = estOffset > 0 && estOffset <= 35 ? estOffset : defaultOffset;
+              dueDay = parsedNum;
+            }
+          } else {
+            dueDayType = 'fixedDay';
+            dueDay = parsedNum;
+            dueDaysOffset = parsedNum < stmtDay ? (30 - stmtDay) + parsedNum : (parsedNum - stmtDay);
+          }
+        }
+      } else {
+        if (bankCfg && bankCfg.defaultDueOffset) {
+          dueDayType = 'daysAfterStatement';
+          dueDaysOffset = bankCfg.defaultDueOffset;
+          dueDay = ((stmtDay - 1 + dueDaysOffset) % 30) + 1;
+        } else {
+          dueDayType = 'fixedDay';
+          dueDay = 25;
+          dueDaysOffset = 20;
+        }
+      }
+    }
+
+    const isPaid = getVal('isPaid', 9).includes('是') || getVal('isPaid', 9).toLowerCase() === 'true';
 
     // 智能解析年费政策（支持自然语言或标准词）
-    const policyRaw = cols[13] || '';
-    const progressRaw = cols[14] || '';
+    const policyRaw = getVal('annualFee', 10);
+    const progressRaw = getVal('feeProgress', 11);
     const annualFee = isDebit 
       ? {
           feeType: 'lifetimeFree' as const,
@@ -887,8 +1025,8 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
         }
       : parseAnnualFeePolicy(policyRaw, progressRaw);
 
-    const phone = cols[15] || '';
-    const notes = cols[16] || '';
+    const phone = getVal('phone', 16) || bankCfg?.phone || '';
+    const notes = getVal('notes', 17);
 
     parsedCards.push({
       id: `batch_card_${Date.now()}_${i}`,
@@ -896,7 +1034,8 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
       bankName,
       cardName,
       cardNumber,
-      cardholder,
+      cardholder, // 隐私保护
+      isSharedLimit: type === 'credit' ? isSharedLimit : false,
       expiryMonth: m.padStart(2, '0').slice(-2),
       expiryYear: y.length === 4 ? y.slice(-2) : y,
       cvv,
@@ -905,10 +1044,10 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
       currency: 'CNY',
       creditLimit: isDebit ? 0 : limit,
       balance: isDebit ? limit : 0,
-      statementDay: Math.min(31, Math.max(1, stmtDay)),
-      dueDay: Math.min(31, Math.max(1, dueDay)),
-      dueDayType: 'fixedDay',
-      dueDaysOffset: 20,
+      statementDay: stmtDay,
+      dueDay,
+      dueDayType,
+      dueDaysOffset,
       currentBillAmount: isDebit ? 0 : bill,
       isBillPaid: isDebit ? true : isPaid,
       annualFee,
@@ -922,12 +1061,19 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
   }
 
   if (parsedCards.length === 0) {
-    return { success: false, count: 0, message: '未能从表格中解析出任何有效卡片，请检查表头或内容格式。' };
+    return { success: false, count: 0, message: '未能从表格中解析出任何有效卡片，请确认表格中包含有效卡片数据。', cards: [] };
   }
 
+  let finalCards: CardRecord[] = [];
   if (mode === 'overwrite') {
-    saveStoredCards(parsedCards);
-    return { success: true, count: parsedCards.length, message: `成功导入 ${parsedCards.length} 张卡片（已全量覆盖现有卡包，历史样卡已彻底替换）` };
+    finalCards = parsedCards;
+    saveStoredCards(finalCards);
+    return { 
+      success: true, 
+      count: finalCards.length, 
+      message: `成功导入 ${finalCards.length} 张卡片（已全量覆盖现有卡包，历史样卡已彻底替换）`,
+      cards: finalCards
+    };
   } else {
     const existing = getStoredCards();
     const map = new Map<string, CardRecord>();
@@ -935,9 +1081,14 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
     existing.forEach(c => map.set(c.cardNumber || c.id, c));
     // 导入的卡覆盖或新增
     parsedCards.forEach(c => map.set(c.cardNumber || c.id, c));
-    const merged = Array.from(map.values());
-    saveStoredCards(merged);
-    return { success: true, count: parsedCards.length, message: `成功增量合并 ${parsedCards.length} 张卡片，现有卡包总数：${merged.length} 张` };
+    finalCards = Array.from(map.values());
+    saveStoredCards(finalCards);
+    return { 
+      success: true, 
+      count: parsedCards.length, 
+      message: `成功增量合并 ${parsedCards.length} 张卡片，现有卡包总数：${finalCards.length} 张`,
+      cards: finalCards
+    };
   }
 }
 
@@ -947,7 +1098,7 @@ export function parseTableRowsToCards(rows: any[][], mode: 'merge' | 'overwrite'
 export async function parseUploadedFileToCards(
   file: File, 
   mode: 'merge' | 'overwrite' = 'merge'
-): Promise<{ success: boolean; count: number; message: string }> {
+): Promise<{ success: boolean; count: number; message: string; cards: CardRecord[] }> {
   try {
     const fileName = file.name.toLowerCase();
     const buffer = await file.arrayBuffer();
@@ -957,7 +1108,7 @@ export async function parseUploadedFileToCards(
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       if (!firstSheetName) {
-        return { success: false, count: 0, message: 'Excel 文件内没有工作表' };
+        return { success: false, count: 0, message: 'Excel 文件内没有工作表', cards: [] };
       }
       const sheet = workbook.Sheets[firstSheetName];
       const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false });
@@ -987,23 +1138,26 @@ export async function parseUploadedFileToCards(
 
     return parseCsvToCards(csvText, mode);
   } catch (err: any) {
-    return { success: false, count: 0, message: `文件解析失败: ${err.message || '未知文件错误'}` };
+    return { success: false, count: 0, message: `文件解析失败: ${err.message || '未知文件错误'}`, cards: [] };
   }
 }
 
 /**
  * 原有 parseCsvToCards 接口升级（接入智能年费解析与双引号转义）
  */
-export function parseCsvToCards(csvText: string, mode: 'merge' | 'overwrite' = 'merge'): { success: boolean; count: number; message: string } {
+export function parseCsvToCards(
+  csvText: string, 
+  mode: 'merge' | 'overwrite' = 'merge'
+): { success: boolean; count: number; message: string; cards: CardRecord[] } {
   try {
     const cleanText = csvText.replace(/^\uFEFF/, '').trim();
     if (!cleanText) {
-      return { success: false, count: 0, message: 'CSV 内容为空' };
+      return { success: false, count: 0, message: 'CSV 内容为空', cards: [] };
     }
 
     const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
     if (lines.length <= 1) {
-      return { success: false, count: 0, message: 'CSV 表格缺少有效数据行' };
+      return { success: false, count: 0, message: 'CSV 表格缺少有效数据行', cards: [] };
     }
 
     const parseRow = (line: string): string[] => {
@@ -1033,6 +1187,6 @@ export function parseCsvToCards(csvText: string, mode: 'merge' | 'overwrite' = '
     const rows = lines.map(line => parseRow(line));
     return parseTableRowsToCards(rows, mode);
   } catch (err: any) {
-    return { success: false, count: 0, message: `CSV 解析失败: ${err.message}` };
+    return { success: false, count: 0, message: `CSV 解析失败: ${err.message}`, cards: [] };
   }
 }

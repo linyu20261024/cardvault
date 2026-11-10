@@ -127,12 +127,20 @@ export const BillCalendarView: React.FC<BillCalendarViewProps> = ({
                           <span className="text-xs text-neutral-400">·</span>
                           <span>{card.cardName}</span>
                         </div>
-                        <div className="text-xs text-neutral-500 flex items-center gap-2 mt-0.5">
+                        <div className="text-xs text-neutral-500 flex flex-wrap items-center gap-2 mt-0.5">
                           <span className="font-mono">尾号 {card.cardNumber.slice(-4)}</span>
                           <span>·</span>
                           <span>账单日 每月{card.statementDay}号</span>
                           <span>·</span>
-                          <span>还款日 每月{card.dueDay}号</span>
+                          <span className="flex items-center gap-1">
+                            <span>还款: </span>
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200">{bill.dueDateDisplay}</span>
+                            {bill.isCrossMonth && (
+                              <span className="px-1 py-0.2 rounded bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 text-[9px] font-bold border border-indigo-500/30">
+                                跨月
+                              </span>
+                            )}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -234,8 +242,13 @@ export const BillCalendarView: React.FC<BillCalendarViewProps> = ({
                           <span className="text-neutral-400">·</span>
                           <span className="truncate max-w-[110px]">{card.cardName}</span>
                         </div>
-                        <div className="text-[11px] text-neutral-500">
-                          账单日 {card.statementDay}号 · 还款日 {card.dueDay}号
+                        <div className="text-[11px] text-neutral-500 flex items-center gap-1">
+                          <span>账单日 {card.statementDay}号 · 截止: {bill.dueDateStr}</span>
+                          {bill.isCrossMonth && (
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                              跨月
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

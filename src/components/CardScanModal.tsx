@@ -423,7 +423,14 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
                       </label>
                       <select
                         value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
+                        onChange={(e) => {
+                          const b = e.target.value;
+                          setBankName(b);
+                          const cfg = BANK_CONFIGS[b];
+                          if (cfg && cfg.defaultDueOffset) {
+                            setDueDaysOffset(cfg.defaultDueOffset);
+                          }
+                        }}
                         className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white font-medium"
                       >
                         {POPULAR_BANKS.map(b => (

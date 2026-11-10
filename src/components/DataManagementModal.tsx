@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   X, Download, Upload, FileText, Database, Trash2, 
   Check, AlertTriangle, ShieldCheck, Github, Copy, RefreshCw, 
-  Camera, FileSpreadsheet, Sparkles, HelpCircle, FileCheck
+  Camera, FileSpreadsheet, Sparkles, HelpCircle, FileCheck, Loader2
 } from 'lucide-react';
 import { CardRecord } from '../types/card';
 import { 
@@ -31,9 +31,11 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'excel' | 'json'>('excel');
   const [jsonText, setJsonText] = useState('');
-  const [importMode, setImportMode] = useState<'merge' | 'overwrite'>('overwrite');
+  const [importMode, setImportMode] = useState<'overwrite' | 'merge'>('overwrite');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [importedCardsCount, setImportedCardsCount] = useState<number | null>(null);
   const [showFeeTips, setShowFeeTips] = useState(false);
 
   // 导出 Excel (.xlsx)
@@ -107,29 +109,33 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     setMessage({ text: '已成功导出 JSON 备份文件，请妥善保存在本地安全路径。', type: 'success' });
   };
 
-  // 上传 Excel 或 CSV 表格（自动兼容 .xlsx, .xls, .csv 及 ANSI/GBK 编码）
-  const handleSpreadsheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // 处理上传的表格文件
+  const processSpreadsheetFile = async (file: File) => {
     setIsProcessing(true);
     setMessage(null);
+    setImportedCardsCount(null);
 
     try {
       const result = await parseUploadedFileToCards(file, importMode);
-      if (result.success) {
+      if (result.success && result.cards && result.cards.length > 0) {
         setMessage({ text: result.message, type: 'success' });
-        const raw = localStorage.getItem('cardvault_cards_v1');
-        if (raw) onDataChanged(JSON.parse(raw));
+        setImportedCardsCount(result.cards.length);
+        onDataChanged(result.cards);
       } else {
-        setMessage({ text: result.message, type: 'error' });
+        setMessage({ text: result.message || '表格中未匹配到有效银行卡数据，请确认表格格式。', type: 'error' });
       }
     } catch (err: any) {
-      setMessage({ text: `导入异常: ${err.message}`, type: 'error' });
+      setMessage({ text: `导入异常: ${err.message || '未知错误'}`, type: 'error' });
     } finally {
       setIsProcessing(false);
-      e.target.value = '';
     }
+  };
+
+  const handleSpreadsheetUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processSpreadsheetFile(file);
+    e.target.value = '';
   };
 
   // 文件导入 JSON
@@ -235,6 +241,26 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
             </div>
           )}
 
+          {/* 导入成功快捷查看卡包横幅 */}
+          {importedCardsCount !== null && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2.5 text-emerald-800 dark:text-emerald-200">
+                <Check className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <div className="font-bold text-xs">🎉 成功导入 {importedCardsCount} 张银行卡！</div>
+                  <div className="text-[11px] opacity-80 mt-0.5">卡包与额度概览已实时刷新，已重置全部筛选条件。</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold whitespace-nowrap text-xs transition-colors shadow-xs"
+              >
+                立即查看我的卡包
+              </button>
+            </div>
+          )}
+
           {/* Quick OCR Banner: 拍卡导入 */}
           <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
@@ -247,7 +273,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 </div>
                 <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  手机拍照、截图或剪贴板粘贴卡面照片，AI 自动提取卡号、银行与有效期并核对导入。
+                  手机拍照或截图，AI 自动提取卡号、银行与有效期并核对导入。
                 </div>
               </div>
             </div>
@@ -275,7 +301,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 }`}
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Excel (.xlsx) / CSV 表格批量维护 (推荐)</span>
+                <span>Excel (.xlsx) / CSV 批量导入 (推荐)</span>
               </button>
               <button
                 type="button"
@@ -299,8 +325,8 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 onChange={(e) => setImportMode(e.target.value as any)}
                 className="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded border border-neutral-300 dark:border-neutral-700 text-[11px] font-medium"
               >
-                <option value="overwrite">全量覆盖 (彻底替换历史样卡)</option>
-                <option value="merge">增量合并 (保留现有卡片)</option>
+                <option value="overwrite">全量覆盖 (彻底替换历史样卡与脏数据)</option>
+                <option value="merge">增量合并 (保留现有真实卡片)</option>
               </select>
             </div>
           </div>
@@ -309,12 +335,12 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
           {activeTab === 'excel' && (
             <div className="space-y-4">
               
-              {/* 针对用户痛点的核心解答卡片 */}
+              {/* 核心特性解答说明 */}
               <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-200 dark:border-neutral-700 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-neutral-900 dark:text-white flex items-center gap-1.5 text-xs">
                     <FileCheck className="w-4 h-4 text-emerald-500" />
-                    <span>Excel 整理与年费政策特别说明</span>
+                    <span>表格批量维护要点（额度共享 & 隐私保护）</span>
                   </div>
                   <button
                     type="button"
@@ -322,21 +348,27 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                     className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
-                    <span>{showFeeTips ? '收起年费提取规则' : '年费怎么填？点击查看'}</span>
+                    <span>{showFeeTips ? '收起填写技巧' : '查看表头与年费填写技巧'}</span>
                   </button>
                 </div>
 
                 <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed pl-1 space-y-1">
                   <div>
-                    <strong>① 为什么之前保存 CSV 会乱码？</strong>
+                    <strong>① 个人隐私安全：</strong>
                     <span className="text-neutral-500 dark:text-neutral-400 ml-1">
-                      Windows 版 Excel 保存 CSV 时默认使用 ANSI (GBK) 编码。现在系统已<strong>全面支持原生 Excel (.xlsx)</strong> 格式直接上传，且对 CSV 内置了 GBK/UTF-8 自动智能转换，<strong>无论用 Excel 存成 .xlsx 还是 .csv 都绝不乱码</strong>！
+                      持卡人姓名完全选填！为了个人金融隐私，<strong>表格中无需填写真实姓名，可直接留空</strong>。
                     </span>
                   </div>
                   <div>
-                    <strong>② 年费政策是可选还是随意描述？</strong>
+                    <strong>② 额度共享支持：</strong>
                     <span className="text-neutral-500 dark:text-neutral-400 ml-1">
-                      <strong>支持任意自然语言描述！</strong>系统搭载了智能语义抽取器，无论您填写「每年刷卡满6次免年费」、「满2万免」、「10000积分兑换」、「刚性年费3600元」还是「终身免年费」，系统都会<strong>自动提取类型与达标门槛数值</strong>，并将完整描述原样保存在卡片备注中。
+                      国内同银行信用卡默认共享同一额度池，系统已在“额度概览”中为您自动去重合并，避免授信虚高。
+                    </span>
+                  </div>
+                  <div>
+                    <strong>③ 动态表头自适应：</strong>
+                    <span className="text-neutral-500 dark:text-neutral-400 ml-1">
+                      系统采用智能模糊列头匹配，即使您在 Excel 里调换列顺序、删除不需要的列，也能精准识别导入。
                     </span>
                   </div>
                 </div>
@@ -344,16 +376,13 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                 {showFeeTips && (
                   <div className="mt-2 pt-2 border-t border-neutral-200 dark:border-neutral-700 text-[11px] space-y-1 bg-white dark:bg-neutral-900/60 p-2.5 rounded-lg text-neutral-700 dark:text-neutral-300 font-mono">
                     <div className="font-bold text-neutral-900 dark:text-white font-sans text-xs mb-1">
-                      💡 常见年费填写范例（均可自动识别）：
+                      💡 常见年费填写范例（支持任意自然语言，自动抽取指标）：
                     </div>
                     <div>• 刷卡次数免：<code>刷满6笔免年费</code> / <code>年刷12次</code> / <code>首年免次年刷6次免</code></div>
                     <div>• 消费金额免：<code>每年消费满20000元免</code> / <code>满3万免</code> / <code>年消费5000元</code></div>
                     <div>• 积分兑换免：<code>10000积分兑换次年年费</code> / <code>1万分抵扣</code></div>
                     <div>• 刚性年费款：<code>刚性年费3600元不可减免</code> / <code>刚性200元</code></div>
-                    <div>• 终身全免类：<code>终身免年费</code> / <code>借记卡无年费</code> / <code>终身免费</code></div>
-                    <div className="text-neutral-400 font-sans mt-1">
-                      * 进度列填写如 <code>0/6</code> 或 <code>3/6</code> 即可，也可留空由系统自动按刷卡记录累计。
-                    </div>
+                    <div>• 终身全免类：<code>终身免年费</code> / <code>借记卡无年费</code></div>
                   </div>
                 )}
               </div>
@@ -369,7 +398,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                       <span>原生 Excel (.xlsx) 模板与导出</span>
                     </div>
                     <div className="text-[11px] text-neutral-500 mt-1">
-                      最适合在 Microsoft Excel 或 WPS 中双击直接打开填写，格式规范、绝无乱码。
+                      直接用 Microsoft Excel 或 WPS 双击打开填写，格式规范、绝无乱码。
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -399,7 +428,7 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                       <span>CSV 格式模板与导出 (带 UTF-8 BOM)</span>
                     </div>
                     <div className="text-[11px] text-neutral-500 mt-1">
-                      通用纯文本表格，已植入微软防乱码 UTF-8 BOM 签名，适合开发者与各类脚本工具。
+                      通用表格格式，已内置 UTF-8 与 GBK 智能探测，绝无乱码。
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -422,8 +451,22 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
               </div>
 
-              {/* 上传区域：同时支持 .xlsx, .xls, .csv */}
-              <div className="relative border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 dark:border-emerald-500/30 dark:hover:border-emerald-400 rounded-xl p-6 text-center transition-colors bg-emerald-50/20 dark:bg-emerald-950/10">
+              {/* 上传区域：同时支持 .xlsx, .xls, .csv 及拖拽 */}
+              <div 
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) processSpreadsheetFile(file);
+                }}
+                className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                  isDragging 
+                    ? 'border-emerald-500 bg-emerald-500/20 scale-[1.01]' 
+                    : 'border-emerald-500/40 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10'
+                }`}
+              >
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv"
@@ -431,13 +474,28 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                   disabled={isProcessing}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                 />
-                <Upload className="w-6 h-6 mx-auto text-emerald-500 mb-1.5" />
-                <div className="font-bold text-neutral-800 dark:text-neutral-200 text-xs">
-                  {isProcessing ? '正在智能解析卡片数据中...' : '点击上传 或 拖拽填写好的 Excel (.xlsx / .xls) 或 CSV 文件至此'}
-                </div>
-                <div className="text-[11px] text-neutral-400 mt-1">
-                  自动识别 Excel 工作表与 GBK/UTF-8 字符集，智能提取银行、卡号、账单日及自然语言年费规则
-                </div>
+                
+                {isProcessing ? (
+                  <div className="flex flex-col items-center justify-center py-2">
+                    <Loader2 className="w-7 h-7 text-emerald-500 animate-spin mb-2" />
+                    <div className="font-bold text-neutral-900 dark:text-white text-xs">
+                      正在智能解析并匹配卡片数据...
+                    </div>
+                    <div className="text-[11px] text-neutral-400 mt-1">
+                      正在提取银行、额度性质、账单日及年费规则
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 mx-auto text-emerald-500 mb-1.5" />
+                    <div className="font-bold text-neutral-800 dark:text-neutral-200 text-xs">
+                      点击上传 或 拖拽填写好的 Excel (.xlsx / .xls) 或 CSV 文件至此
+                    </div>
+                    <div className="text-[11px] text-neutral-400 mt-1">
+                      当前策略：<strong className="text-neutral-700 dark:text-neutral-300">{importMode === 'overwrite' ? '全量覆盖（推荐，彻底替换样卡）' : '增量合并'}</strong>
+                    </div>
+                  </>
+                )}
               </div>
 
             </div>
