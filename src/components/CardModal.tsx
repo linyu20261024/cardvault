@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, Sparkles, Building, Calendar, DollarSign, Shield, Info } from 'lucide-react';
+import { X, CreditCard, Sparkles, Building, Calendar, DollarSign, Shield, Info, Eye, EyeOff } from 'lucide-react';
 import { CardRecord, CardType, CardOrganization, CardTier, AnnualFeeType } from '../types/card';
 import { 
   POPULAR_BANKS, BANK_CONFIGS, THEME_GRADIENTS, 
@@ -32,6 +32,7 @@ export const CardModal: React.FC<CardModalProps> = ({
   const [expiryMonth, setExpiryMonth] = useState('12');
   const [expiryYear, setExpiryYear] = useState('29');
   const [cvv, setCvv] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
   const [organization, setOrganization] = useState<CardOrganization>('UnionPay');
   const [cardTier, setCardTier] = useState<CardTier>('platinum');
   const [cardColorTheme, setCardColorTheme] = useState('black-gold');
@@ -220,11 +221,11 @@ export const CardModal: React.FC<CardModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden my-6"
+        className="relative w-full max-w-2xl max-h-[92vh] sm:max-h-[85vh] bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xs">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-neutral-900 dark:text-white" />
             <h3 className="text-base font-bold text-neutral-900 dark:text-white">
@@ -233,16 +234,19 @@ export const CardModal: React.FC<CardModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto text-xs">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           
-          {/* 1. 卡片类型选择 (Segmented Tab) */}
+          {/* Scrollable Form Body */}
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
+            
+            {/* 1. 卡片类型选择 (Segmented Tab) */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
               卡片类型
@@ -379,14 +383,24 @@ export const CardModal: React.FC<CardModalProps> = ({
               <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                 安全码 (CVV)
               </label>
-              <input
-                type="password"
-                maxLength={4}
-                placeholder="•••"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg font-mono text-neutral-900 dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showCvv ? "text" : "password"}
+                  maxLength={4}
+                  placeholder="•••"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value)}
+                  className="w-full pl-2.5 pr-8 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg font-mono text-neutral-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCvv(!showCvv)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-0.5"
+                  title={showCvv ? "隐藏安全码" : "显示安全码"}
+                >
+                  {showCvv ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -811,8 +825,10 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
           </div>
 
-          {/* Footer Submit Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200 dark:border-neutral-800">
+          </div>
+
+          {/* Sticky Footer Submit Buttons */}
+          <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-3 border-t border-neutral-200 dark:border-neutral-800 shrink-0 bg-neutral-50/90 dark:bg-neutral-850/90 backdrop-blur-xs">
             <button
               type="button"
               onClick={onClose}

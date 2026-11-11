@@ -1,5 +1,5 @@
-import React from 'react';
-import { Copy, PlusCircle, Check, MoreHorizontal, ArrowUpDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Copy, PlusCircle, Check, MoreHorizontal, ArrowUpDown, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { CardRecord } from '../types/card';
 import { BANK_CONFIGS, formatCardNumber, formatMoney } from '../utils/bankData';
 import { calculateBillStatus, calculateAnnualFeeStatus } from '../utils/cardCalculations';
@@ -20,23 +20,53 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
   onQuickSwipe,
   onQuickRepay,
 }) => {
+  const [unhiddenCvvIds, setUnhiddenCvvIds] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedCvvId, setCopiedCvvId] = useState<string | null>(null);
+
+  const toggleCvv = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUnhiddenCvvIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyCvv = (id: string, cvv: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(cvv);
+    setCopiedCvvId(id);
+    setTimeout(() => setCopiedCvvId(null), 2000);
+  };
+
+  const copyNumber = (id: string, num: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(num);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
-      <table className="w-full text-left text-xs text-neutral-600 dark:text-neutral-300 border-collapse">
-        <thead className="bg-neutral-50 dark:bg-neutral-800/80 text-neutral-500 dark:text-neutral-400 font-medium uppercase tracking-wider text-[11px] border-b border-neutral-200 dark:border-neutral-800 select-none">
-          <tr>
-            <th className="py-3 px-4">卡片与银行</th>
-            <th className="py-3 px-3">类型</th>
-            <th className="py-3 px-3">卡号</th>
-            <th className="py-3 px-3 text-right">额度 / 余额</th>
-            <th className="py-3 px-3 text-right">本期应还</th>
-            <th className="py-3 px-3">账单 / 还款日</th>
-            <th className="py-3 px-3 text-center">今日免息</th>
-            <th className="py-3 px-3">年费刷免进度</th>
-            <th className="py-3 px-4 text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800/80">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
+      {/* Mobile Swipe Hint */}
+      <div className="md:hidden px-3 py-1.5 bg-neutral-100/70 dark:bg-neutral-800/60 border-b border-neutral-200 dark:border-neutral-800 text-[11px] text-neutral-500 flex items-center justify-between">
+        <span>👈 左右滑动可查看完整表格内容 👉</span>
+        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">支持横滑</span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs text-neutral-600 dark:text-neutral-300 border-collapse">
+          <thead className="bg-neutral-50 dark:bg-neutral-800/80 text-neutral-500 dark:text-neutral-400 font-medium uppercase tracking-wider text-[11px] border-b border-neutral-200 dark:border-neutral-800 select-none">
+            <tr>
+              <th className="py-3 px-4">卡片与银行</th>
+              <th className="py-3 px-3">类型</th>
+              <th className="py-3 px-3">卡号与安全凭证</th>
+              <th className="py-3 px-3 text-right">额度 / 余额</th>
+              <th className="py-3 px-3 text-right">本期应还</th>
+              <th className="py-3 px-3">账单 / 还款日</th>
+              <th className="py-3 px-3 text-center">今日免息</th>
+              <th className="py-3 px-3">年费刷免进度</th>
+              <th className="py-3 px-4 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800/80">
           {cards.map((card) => {
             const bankCfg = BANK_CONFIGS[card.bankName] || BANK_CONFIGS['其他银行'];
             const bill = calculateBillStatus(card);
@@ -94,20 +124,53 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
                   </span>
                 </td>
 
-                {/* 3. 卡号 */}
+                {/* 3. 卡号与安全凭证 */}
                 <td className="py-3 px-3 whitespace-nowrap font-mono">
                   <div className="flex items-center gap-1.5">
-                    <span>{maskedNum}</span>
+                    <span className="font-medium text-neutral-900 dark:text-white">{maskedNum}</span>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(card.cardNumber);
-                      }}
+                      onClick={(e) => copyNumber(card.id, card.cardNumber, e)}
                       title="复制完整卡号"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-opacity"
+                      className="p-1 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
                     >
-                      <Copy className="w-3.5 h-3.5" />
+                      {copiedId === card.id ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
+                  </div>
+
+                  {/* CVV & Expiry Sub-row */}
+                  <div className="flex items-center gap-2 mt-1 text-[11px] font-sans">
+                    {card.cvv ? (
+                      <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200/60 dark:border-neutral-700/60">
+                        <span className="text-neutral-500 text-[10px]">CVV:</span>
+                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                          {unhiddenCvvIds[card.id] ? card.cvv : '•••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => toggleCvv(card.id, e)}
+                          title={unhiddenCvvIds[card.id] ? '隐藏安全码' : '点击取消隐藏'}
+                          className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-0.5"
+                        >
+                          {unhiddenCvvIds[card.id] ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => copyCvv(card.id, card.cvv, e)}
+                          title="复制CVV"
+                          className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-0.5"
+                        >
+                          {copiedCvvId === card.id ? <Check className="w-2.5 h-2.5 text-emerald-500" /> : <Copy className="w-2.5 h-2.5" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-neutral-400">无CVV</span>
+                    )}
+
+                    {card.expiryMonth && card.expiryYear && (
+                      <span className="text-[10px] text-neutral-500 font-mono">
+                        {card.expiryMonth}/{card.expiryYear}
+                      </span>
+                    )}
                   </div>
                 </td>
 
@@ -238,6 +301,7 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 };

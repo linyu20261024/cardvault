@@ -229,7 +229,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans transition-colors pb-16">
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans transition-colors pb-24 md:pb-16">
       
       {/* Top Bar Header */}
       <Header
@@ -317,12 +317,12 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Bank Select & Sort Dropdowns */}
-                <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto text-xs">
+                {/* Bank Select & Sort Dropdowns & View Toggle */}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto text-xs">
                   <select
                     value={selectedBank}
                     onChange={(e) => setSelectedBank(e.target.value)}
-                    className="px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-700 dark:text-neutral-200 focus:outline-hidden whitespace-nowrap shrink-0"
+                    className="flex-1 sm:flex-none px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-700 dark:text-neutral-200 focus:outline-hidden whitespace-nowrap min-w-[120px]"
                   >
                     <option value="all">所有发卡银行</option>
                     {POPULAR_BANKS.map((b) => (
@@ -333,17 +333,17 @@ export default function App() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-700 dark:text-neutral-200 focus:outline-hidden whitespace-nowrap shrink-0"
+                    className="flex-1 sm:flex-none px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-700 dark:text-neutral-200 focus:outline-hidden whitespace-nowrap min-w-[130px]"
                   >
                     <option value="default">默认排列</option>
-                    <option value="grace_period">按今日免息期 (长到短)</option>
+                    <option value="grace_period">按今日免息 (长到短)</option>
                     <option value="due_date">按还款截止 (近到远)</option>
                     <option value="limit_desc">按额度/余额 (高到低)</option>
                     <option value="bill_desc">按本期账单 (多到少)</option>
                   </select>
 
                   {/* Grid / Table View toggle */}
-                  <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg shrink-0">
+                  <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg shrink-0 ml-auto sm:ml-0">
                     <button
                       onClick={() => setViewMode('grid')}
                       title="3D拟真卡包视图"

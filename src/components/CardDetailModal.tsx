@@ -30,6 +30,10 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   onQuickRepay,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copiedCvv, setCopiedCvv] = useState(false);
+  const [copiedExpiry, setCopiedExpiry] = useState(false);
+  const [revealCvv, setRevealCvv] = useState(false);
+  const [revealNumber, setRevealNumber] = useState(!privacyMode);
 
   if (!isOpen || !card) return null;
 
@@ -37,10 +41,24 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const bill = calculateBillStatus(card);
   const fee = calculateAnnualFeeStatus(card.annualFee);
 
-  const handleCopy = () => {
+  const handleCopyNumber = () => {
     navigator.clipboard.writeText(card.cardNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyCvv = () => {
+    if (!card.cvv) return;
+    navigator.clipboard.writeText(card.cvv);
+    setCopiedCvv(true);
+    setTimeout(() => setCopiedCvv(false), 2000);
+  };
+
+  const handleCopyExpiry = () => {
+    const exp = `${card.expiryMonth}/${card.expiryYear}`;
+    navigator.clipboard.writeText(exp);
+    setCopiedExpiry(true);
+    setTimeout(() => setCopiedExpiry(false), 2000);
   };
 
   const handleDelete = () => {
@@ -53,27 +71,27 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div 
-        className="relative w-full max-w-xl bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden my-6"
+        className="relative w-full max-w-xl max-h-[92vh] sm:max-h-[88vh] bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+        {/* Sticky Header */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xs">
           <div className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-neutral-900 dark:text-white" />
-            <h3 className="text-base font-bold text-neutral-900 dark:text-white">
+            <h3 className="text-base font-bold text-neutral-900 dark:text-white truncate max-w-[240px] sm:max-w-md">
               {card.bankName} · {card.cardName}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto text-xs">
+        {/* Scrollable Content */}
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto text-xs">
           
           {/* 3D Visual Card Display */}
           <div className="max-w-md mx-auto">
@@ -87,21 +105,134 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             />
           </div>
 
-          {/* Quick Copy Number banner */}
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-            <div className="flex items-center gap-2 font-mono">
-              <span className="text-neutral-500">完整卡号:</span>
-              <span className="font-semibold text-neutral-900 dark:text-white">
-                {privacyMode ? formatCardNumber(card.cardNumber, true) : card.cardNumber}
+          {/* 💳 Dedicated Card Security Credentials & CVV Section */}
+          <div className="p-4 bg-gradient-to-br from-amber-500/5 to-amber-500/10 dark:from-amber-500/10 dark:to-amber-500/5 rounded-2xl border border-amber-500/25 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-neutral-900 dark:text-white">
+                <ShieldCheck className="w-4 h-4 text-amber-500" />
+                <span className="text-xs sm:text-sm">卡片凭证与安全码 (CVV/CVC)</span>
+              </div>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/20">
+                纯本地离线加密
               </span>
             </div>
-            <button
-              onClick={handleCopy}
-              className="px-2.5 py-1 rounded bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 border border-neutral-200 dark:border-neutral-600 font-medium transition-colors flex items-center gap-1"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? '已复制' : '复制卡号'}</span>
-            </button>
+
+            {/* 1. Full Card Number */}
+            <div className="p-2.5 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] text-neutral-400">完整卡号 (16-19位)</div>
+                <div className="font-mono font-semibold text-neutral-900 dark:text-white text-xs sm:text-sm tracking-wider truncate">
+                  {revealNumber ? card.cardNumber : formatCardNumber(card.cardNumber, true)}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRevealNumber(!revealNumber)}
+                  className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 transition-colors text-[11px] font-medium"
+                >
+                  {revealNumber ? '隐藏' : '显示'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCopyNumber}
+                  className="px-2 py-1 rounded bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white text-white font-medium transition-colors text-[11px] flex items-center gap-1"
+                >
+                  {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{copied ? '已复制' : '复制卡号'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. CVV and Expiry Date Side by Side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono">
+              
+              {/* CVV Box with prominent reveal button */}
+              <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-sans text-neutral-400 flex items-center gap-1">
+                    <span>安全码 (CVV/CVC)</span>
+                  </div>
+                  <div className="text-base font-extrabold tracking-widest mt-0.5">
+                    {card.cvv ? (
+                      revealCvv ? (
+                        <span className="text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                          {card.cvv}
+                        </span>
+                      ) : (
+                        <span className="text-neutral-500 tracking-wider">••••</span>
+                      )
+                    ) : (
+                      <span className="text-neutral-400 text-xs font-normal font-sans">未录入</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {card.cvv ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setRevealCvv(!revealCvv)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs ${
+                          revealCvv
+                            ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-300'
+                            : 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
+                        }`}
+                      >
+                        <span>{revealCvv ? '点击隐藏' : '点击取消隐藏'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyCvv}
+                        title="复制 CVV 安全码"
+                        className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 transition-colors"
+                      >
+                        {copiedCvv ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onEditCard(card);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 text-xs font-medium"
+                    >
+                      + 录入CVV
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Expiry Date Box */}
+              <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-sans text-neutral-400">有效期 (月/年)</div>
+                  <div className="text-sm font-bold text-neutral-900 dark:text-white mt-0.5">
+                    {card.expiryMonth && card.expiryYear ? `${card.expiryMonth}/${card.expiryYear}` : '未设置'}
+                  </div>
+                </div>
+
+                {card.expiryMonth && card.expiryYear && (
+                  <button
+                    type="button"
+                    onClick={handleCopyExpiry}
+                    className="px-2 py-1 rounded bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-300 transition-colors text-[11px] font-sans flex items-center gap-1"
+                  >
+                    {copiedExpiry ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedExpiry ? '已复制' : '复制'}</span>
+                  </button>
+                )}
+              </div>
+
+            </div>
+
+            <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+              💡 隐私安全说明：安全码与卡号纯本地保存在浏览器缓存中，不会被传输至外部服务器，离线断网状态下仍可查验。
+            </div>
           </div>
 
           {/* Detailed Financial & Reminders for Credit Cards */}
@@ -277,30 +408,30 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             )}
           </div>
 
-          {/* Actions: Edit & Delete */}
-          <div className="flex items-center justify-between pt-4 border-t border-neutral-200 dark:border-neutral-800">
+        </div>
+
+        {/* Sticky Actions Footer: Edit & Delete */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-neutral-200 dark:border-neutral-800 shrink-0 bg-neutral-50/90 dark:bg-neutral-850/90 backdrop-blur-xs">
+          <button
+            onClick={handleDelete}
+            className="px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>删除此卡</span>
+          </button>
+
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleDelete}
-              className="px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center gap-1.5"
+              onClick={() => {
+                onClose();
+                onEditCard(card);
+              }}
+              className="px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-lg shadow-sm transition-all flex items-center gap-1.5"
             >
-              <Trash2 className="w-4 h-4" />
-              <span>删除此卡</span>
+              <Edit3 className="w-4 h-4" />
+              <span>编辑卡片信息</span>
             </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  onClose();
-                  onEditCard(card);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 rounded-lg shadow-sm transition-all flex items-center gap-1.5"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span>编辑卡片信息</span>
-              </button>
-            </div>
           </div>
-
         </div>
 
       </div>

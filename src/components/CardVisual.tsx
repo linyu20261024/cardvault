@@ -26,6 +26,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedCvv, setCopiedCvv] = useState(false);
   const [revealCvv, setRevealCvv] = useState(false);
 
   const bankCfg = BANK_CONFIGS[card.bankName] || BANK_CONFIGS['其他银行'];
@@ -39,6 +40,20 @@ export const CardVisual: React.FC<CardVisualProps> = ({
     navigator.clipboard.writeText(card.cardNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyCvv = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!card.cvv) return;
+    navigator.clipboard.writeText(card.cvv);
+    setCopiedCvv(true);
+    setTimeout(() => setCopiedCvv(false), 2000);
+  };
+
+  const handleInspectCvv = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsFlipped(true);
+    setRevealCvv(true);
   };
 
   const formattedNumber = formatCardNumber(card.cardNumber, privacyMode);
@@ -180,18 +195,29 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                 </div>
                 
                 {/* CVV Box */}
-                <div className="flex items-center gap-1.5 bg-neutral-900/80 px-2.5 py-1 rounded border border-white/20">
-                  <span className="text-[10px] text-white/60">CVV:</span>
-                  <span className="font-mono font-bold text-xs text-amber-300">
-                    {revealCvv ? (card.cvv || '---') : (card.cvv ? '•••' : '---')}
+                <div className="flex items-center gap-1.5 bg-neutral-900/90 px-2.5 py-1 rounded-md border border-white/25 shadow-xs">
+                  <span className="text-[10px] text-white/70 font-sans">CVV:</span>
+                  <span className="font-mono font-bold text-xs text-amber-300 tracking-wider">
+                    {card.cvv ? (revealCvv ? card.cvv : '••••') : '未录入'}
                   </span>
                   {card.cvv && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setRevealCvv(!revealCvv); }}
-                      className="text-white/60 hover:text-white ml-0.5"
-                    >
-                      {revealCvv ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                    </button>
+                    <div className="flex items-center gap-1 ml-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRevealCvv(!revealCvv); }}
+                        className="text-[10px] text-white/80 hover:text-white bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded transition-colors flex items-center gap-0.5"
+                        title={revealCvv ? '点击隐藏' : '点击取消隐藏'}
+                      >
+                        {revealCvv ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                        <span>{revealCvv ? '隐藏' : '取消隐藏'}</span>
+                      </button>
+                      <button
+                        onClick={handleCopyCvv}
+                        className="text-white/80 hover:text-white p-0.5"
+                        title="复制CVV"
+                      >
+                        {copiedCvv ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Copy className="w-2.5 h-2.5" />}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -312,6 +338,17 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                 title="登记账单还款"
               >
                 <span>记还款</span>
+              </button>
+            )}
+
+            {card.cvv && (
+              <button
+                onClick={handleInspectCvv}
+                className="px-2 py-1 text-[11px] font-medium rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-colors flex items-center gap-1"
+                title="翻转卡片至背面查看安全码CVV"
+              >
+                <Eye className="w-3 h-3 text-amber-500" />
+                <span>查CVV</span>
               </button>
             )}
           </div>
