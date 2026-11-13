@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { 
   X, Edit3, Trash2, Copy, Check, Phone, ShieldCheck, 
-  Calendar, DollarSign, Clock, PlusCircle, CreditCard, ExternalLink
+  Calendar, DollarSign, Clock, PlusCircle, CreditCard, ExternalLink, Sparkles
 } from 'lucide-react';
-import { CardRecord } from '../types/card';
+import { CardRecord, CardTier } from '../types/card';
 import { CardVisual } from './CardVisual';
-import { BANK_CONFIGS, formatMoney, formatCardNumber } from '../utils/bankData';
+import { 
+  BANK_CONFIGS, formatMoney, formatCardNumber, 
+  CARD_TIER_OPTIONS, getCardTierLabel, detectCardTierByBin 
+} from '../utils/bankData';
 import { calculateBillStatus, calculateAnnualFeeStatus } from '../utils/cardCalculations';
 
 interface CardDetailModalProps {
@@ -17,6 +20,7 @@ interface CardDetailModalProps {
   onDeleteCard: (cardId: string) => void;
   onQuickSwipe: (card: CardRecord) => void;
   onQuickRepay: (card: CardRecord) => void;
+  onUpdateCardTier?: (card: CardRecord, tier: CardTier) => void;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({
@@ -28,12 +32,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   onDeleteCard,
   onQuickSwipe,
   onQuickRepay,
+  onUpdateCardTier,
 }) => {
   const [copied, setCopied] = useState(false);
   const [copiedCvv, setCopiedCvv] = useState(false);
   const [copiedExpiry, setCopiedExpiry] = useState(false);
   const [revealCvv, setRevealCvv] = useState(false);
   const [revealNumber, setRevealNumber] = useState(!privacyMode);
+  const [binMatchHint, setBinMatchHint] = useState<string | null>(null);
 
   if (!isOpen || !card) return null;
 
@@ -101,9 +107,59 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               onOpenDetails={() => {}}
               onQuickSwipe={() => onQuickSwipe(card)}
               onQuickRepay={() => onQuickRepay(card)}
+              onUpdateCardTier={onUpdateCardTier}
               isBestToSwipe={bill.isBestCardToSwipeToday}
             />
           </div>
+
+          {/* 卡片等级配置 & 卡BIN匹配 */}
+          {onUpdateCardTier && (
+            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-neutral-700 dark:text-neutral-300">卡片等级:</span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {CARD_TIER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onUpdateCardTier(card, opt.value);
+                        setBinMatchHint(`已设置为${opt.label}`);
+                        setTimeout(() => setBinMatchHint(null), 2500);
+                      }}
+                      className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                        card.cardTier === opt.value
+                          ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold'
+                          : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {binMatchHint && (
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    {binMatchHint}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = detectCardTierByBin(card.cardNumber, card.cardName);
+                    onUpdateCardTier(card, res.tier);
+                    setBinMatchHint(res.matchedDesc);
+                    setTimeout(() => setBinMatchHint(null), 3500);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-neutral-200/70 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 text-[11px] font-medium transition-colors whitespace-nowrap"
+                >
+                  按卡BIN识别 ({getCardTierLabel(card.cardTier)})
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 💳 Dedicated Card Security Credentials & CVV Section */}
           <div className="p-4 bg-gradient-to-br from-amber-500/5 to-amber-500/10 dark:from-amber-500/10 dark:to-amber-500/5 rounded-2xl border border-amber-500/25 space-y-3">

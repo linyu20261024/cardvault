@@ -9,7 +9,8 @@ import {
   exportCardsToJson, importCardsFromJson, exportCardsToCsv, 
   exportCardsToExcelBlob, getStandardExcelTemplateBlob,
   parseCsvToCards, parseUploadedFileToCards, getStandardCsvTemplate, 
-  SAMPLE_CARDS, saveStoredCards, removeSampleCards, isSampleCard 
+  SAMPLE_CARDS, saveStoredCards, removeSampleCards, isSampleCard,
+  recalibrateAllCardsTierByBin
 } from '../utils/storage';
 
 interface DataManagementModalProps {
@@ -205,6 +206,25 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
     }
   };
 
+  // 按卡BIN一键校准全部已录入卡片等级
+  const handleRecalibrateTiers = () => {
+    if (cards.length === 0) return;
+    const { cards: updatedCards, updatedCount } = recalibrateAllCardsTierByBin(cards);
+    if (updatedCount > 0) {
+      saveStoredCards(updatedCards);
+      onDataChanged(updatedCards);
+      setMessage({
+        text: `已按卡BIN完成校准：共更新 ${updatedCount} 张卡片的等级（如需微调，可直接在卡面或详情页下拉选择）。`,
+        type: 'success',
+      });
+    } else {
+      setMessage({
+        text: '已完成扫描，当前卡片均已匹配卡BIN对应等级（未收录BIN默认归为普卡，可在卡面或详情页手动修改）。',
+        type: 'success',
+      });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div 
@@ -366,9 +386,9 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
                     </span>
                   </div>
                   <div>
-                    <strong>③ 动态表头自适应：</strong>
+                    <strong>③ 动态表头自适应与卡级识别：</strong>
                     <span className="text-neutral-500 dark:text-neutral-400 ml-1">
-                      系统采用智能模糊列头匹配，即使您在 Excel 里调换列顺序、删除不需要的列，也能精准识别导入。
+                      支持调换列顺序及新增可选列“卡片等级”（普卡/金卡/白金卡/钻石卡/黑金卡），留空则根据卡号 BIN 自动匹配。
                     </span>
                   </div>
                 </div>
@@ -569,7 +589,18 @@ export const DataManagementModal: React.FC<DataManagementModalProps> = ({
 
           {/* 底部重载与危险区 */}
           <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {cards.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRecalibrateTiers}
+                  className="px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>按卡BIN校准卡片等级</span>
+                </button>
+              )}
+
               {hasSampleCards && (
                 <button
                   type="button"

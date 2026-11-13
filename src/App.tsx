@@ -8,10 +8,11 @@ import {
   Search, Filter, LayoutGrid, List, Plus, CreditCard, 
   ArrowUpDown, X, Sparkles, AlertCircle, ShieldCheck
 } from 'lucide-react';
-import { CardRecord, ViewTab, FilterType } from './types/card';
+import { CardRecord, CardTier, ViewTab, FilterType } from './types/card';
 import { 
   getStoredCards, saveStoredCards, getStoredSettings, 
-  saveStoredSettings, SAMPLE_CARDS, isSampleCard, removeSampleCards 
+  saveStoredSettings, SAMPLE_CARDS, isSampleCard, removeSampleCards,
+  recalibrateAllCardsTierByBin
 } from './utils/storage';
 import { calculateBillStatus, calculateAnnualFeeStatus } from './utils/cardCalculations';
 import { POPULAR_BANKS } from './utils/bankData';
@@ -62,6 +63,7 @@ export default function App() {
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [calibrateNotice, setCalibrateNotice] = useState<string | null>(null);
 
   // Sync theme
   useEffect(() => {
@@ -96,6 +98,28 @@ export default function App() {
   const handleDeleteCard = (cardId: string) => {
     const updated = cards.filter(c => c.id !== cardId);
     updateCards(updated);
+  };
+
+  const handleUpdateCardTier = (card: CardRecord, tier: CardTier) => {
+    handleSaveCard({
+      ...card,
+      cardTier: tier,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const handleBatchCalibrateTiers = () => {
+    if (cards.length === 0) return;
+    const { cards: updatedCards, updatedCount } = recalibrateAllCardsTierByBin(cards);
+    if (updatedCount > 0) {
+      updateCards(updatedCards);
+      setCalibrateNotice(`已按卡BIN完成批量校准，共更新 ${updatedCount} 张卡片等级；未命中特定BIN段均已设为普卡，您也可直接在卡面或详情页修改。`);
+    } else {
+      setCalibrateNotice('已完成扫描，所有卡片均已匹配对应等级；如需单独调整，可直接在卡面或详情页下拉修改。');
+    }
+    setTimeout(() => {
+      setCalibrateNotice(null);
+    }, 6000);
   };
 
   // Toggle privacy mode
@@ -432,7 +456,33 @@ export default function App() {
                 >
                   年费待达标
                 </button>
+
+                {cards.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBatchCalibrateTiers}
+                    title="根据卡号前6位BIN段自动校正已录入卡片的等级"
+                    className="ml-auto px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span>按卡BIN校准等级</span>
+                  </button>
+                )}
               </div>
+
+              {calibrateNotice && (
+                <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-200 text-xs flex items-center justify-between gap-2">
+                  <span>{calibrateNotice}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCalibrateNotice(null)}
+                    className="p-0.5 rounded hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                    aria-label="关闭提示"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
             </div>
 
@@ -485,6 +535,7 @@ export default function App() {
                     onOpenDetails={handleOpenDetails}
                     onQuickSwipe={handleQuickSwipe}
                     onQuickRepay={handleQuickRepay}
+                    onUpdateCardTier={handleUpdateCardTier}
                     isBestToSwipe={card.id === bestCardToSwipeId}
                   />
                 ))}
@@ -498,6 +549,7 @@ export default function App() {
                 onQuickSwipe={handleQuickSwipe}
                 onQuickRepay={handleQuickRepay}
                 onDeleteCard={handleDeleteCard}
+                onUpdateCardTier={handleUpdateCardTier}
               />
             )}
 
@@ -562,6 +614,7 @@ export default function App() {
         onDeleteCard={handleDeleteCard}
         onQuickSwipe={handleQuickSwipe}
         onQuickRepay={handleQuickRepay}
+        onUpdateCardTier={handleUpdateCardTier}
       />
 
       {/* 3. Quick Swipe Log Modal (+1 for annual fee waiver) */}

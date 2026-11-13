@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { CardRecord, AnnualFeeType } from '../types/card';
 import { calculateAnnualFeeStatus } from '../utils/cardCalculations';
-import { BANK_CONFIGS, formatMoney } from '../utils/bankData';
+import { BANK_CONFIGS, formatMoney, getCardTierLabel } from '../utils/bankData';
 
 interface AnnualFeeTrackerProps {
   cards: CardRecord[];
@@ -164,7 +164,7 @@ export const AnnualFeeTracker: React.FC<AnnualFeeTrackerProps> = ({
                       <span>{card.cardName}</span>
                     </div>
                     <div className="text-xs text-neutral-500 font-mono">
-                      尾号 {card.cardNumber.slice(-4)} · {card.cardTier}
+                      尾号 {card.cardNumber.slice(-4)} · {getCardTierLabel(card.cardTier)}
                     </div>
                   </div>
                 </div>

@@ -283,6 +283,183 @@ export const THEME_GRADIENTS: { id: string; name: string; class: string; border:
   { id: 'carbon-titanium', name: '碳纤曜黑', class: 'from-neutral-950 via-zinc-950 to-neutral-900 text-neutral-100', border: 'border-neutral-700/50' },
 ];
 
+export const CARD_TIER_OPTIONS: { value: CardTier; label: string }[] = [
+  { value: 'standard', label: '普卡' },
+  { value: 'gold', label: '金卡' },
+  { value: 'platinum', label: '白金卡' },
+  { value: 'diamond', label: '钻石卡' },
+  { value: 'black', label: '黑金卡' },
+];
+
+const CARD_TIER_LABEL_MAP: Record<CardTier, string> = {
+  standard: '普卡',
+  gold: '金卡',
+  platinum: '白金卡',
+  diamond: '钻石卡',
+  black: '黑金卡',
+};
+
+export function getCardTierLabel(tier?: CardTier | string): string {
+  if (!tier) return '普卡';
+  return CARD_TIER_LABEL_MAP[tier as CardTier] || '普卡';
+}
+
+export function parseCardTierInput(raw?: string): CardTier | null {
+  if (!raw) return null;
+  const clean = raw.trim().toLowerCase();
+  if (!clean) return null;
+  if (/black|centurion|infinite|world\s*elite|黑金|无限|百夫长黑|世界之极/.test(clean)) return 'black';
+  if (/diamond|钻石|私行|私人银行/.test(clean)) return 'diamond';
+  if (/platinum|plat|白金|铂金/.test(clean)) return 'platinum';
+  if (/gold|titanium|金卡|钛金/.test(clean)) return 'gold';
+  if (/standard|classic|normal|普卡|标准/.test(clean)) return 'standard';
+  return null;
+}
+
+/**
+ * 常用银行卡 BIN (前6位/前4位) -> 卡片等级映射表
+ * 说明：仅用于依据卡BIN识别卡片物理卡级，不推算也不提示卡片权益。
+ */
+const BIN_TIER_EXACT_6: Record<string, CardTier> = {
+  // 黑金 / 无限 / 世界之极
+  '622238': 'black', // 工银黑金
+  '625961': 'black', // 工银高端黑金
+  '370248': 'black', // 招行百夫长黑金
+  '376966': 'black', // 民生/浦发黑金系列
+  '552534': 'black', // 招行/世界之极高端万事达
+  '549757': 'black', // 万事达世界之极
+  '453242': 'black', // Visa Infinite
+
+  // 钻石卡 / 世界卡
+  '625808': 'diamond', // 招行钻石
+  '625902': 'diamond', // 建行钻石
+  '625362': 'diamond', // 银联钻石
+  '625363': 'diamond', // 银联钻石
+  '625999': 'diamond', // 银联高端钻石
+  '625911': 'diamond', // 中行钻石
+  '622982': 'diamond', // 银联钻石
+  '622983': 'diamond', // 银联钻石
+
+  // 白金卡
+  '622575': 'platinum', '622576': 'platinum', '622577': 'platinum', '622578': 'platinum', '622579': 'platinum',
+  '625802': 'platinum', '625803': 'platinum', '625805': 'platinum', '625806': 'platinum', '625809': 'platinum',
+  '439227': 'platinum', '545619': 'platinum', '545620': 'platinum',
+  '622230': 'platinum', '622231': 'platinum', '622232': 'platinum', '622233': 'platinum', '622235': 'platinum',
+  '625330': 'platinum', '625331': 'platinum', '625332': 'platinum', '625960': 'platinum', '451804': 'platinum', '530980': 'platinum',
+  '622166': 'platinum', '622168': 'platinum', '625955': 'platinum', '625956': 'platinum', '625957': 'platinum', '625958': 'platinum', '553242': 'platinum', '436745': 'platinum',
+  '622788': 'platinum', '622760': 'platinum', '625905': 'platinum', '625906': 'platinum', '625907': 'platinum', '625910': 'platinum', '622752': 'platinum', '524865': 'platinum',
+  '625996': 'platinum', '625997': 'platinum', '625998': 'platinum', '625336': 'platinum', '622836': 'platinum', '622837': 'platinum',
+  '622253': 'platinum', '625028': 'platinum', '625029': 'platinum', '625946': 'platinum', '625947': 'platinum', '552853': 'platinum',
+  '622918': 'platinum', '622919': 'platinum', '625801': 'platinum', '625951': 'platinum', '625952': 'platinum', '625953': 'platinum',
+  '622518': 'platinum', '625959': 'platinum', '625993': 'platinum', '376968': 'platinum', '376969': 'platinum',
+  '625071': 'platinum', '625072': 'platinum', '625807': 'platinum', '622569': 'platinum',
+  '622155': 'platinum', '622156': 'platinum', '625978': 'platinum', '625979': 'platinum', '622989': 'platinum',
+  '622908': 'platinum', '622909': 'platinum', '625900': 'platinum', '625901': 'platinum',
+  '622622': 'platinum', '625912': 'platinum', '625913': 'platinum',
+  '622658': 'platinum', '622659': 'platinum', '625975': 'platinum', '625976': 'platinum',
+  '625919': 'platinum', '625920': 'platinum',
+  '625967': 'platinum', '625968': 'platinum',
+
+  // 金卡
+  '622580': 'gold', '622581': 'gold', '622582': 'gold', '622588': 'gold', '439225': 'gold', '439226': 'gold', '518710': 'gold', '524090': 'gold', '356885': 'gold', '356886': 'gold',
+  '622200': 'gold', '622202': 'gold', '622208': 'gold', '622210': 'gold', '622215': 'gold', '625338': 'gold', '451810': 'gold', '548259': 'gold',
+  '622700': 'gold', '622160': 'gold', '622161': 'gold', '436742': 'gold', '532450': 'gold', '532458': 'gold',
+  '622750': 'gold', '622751': 'gold', '625909': 'gold', '518378': 'gold', '456351': 'gold',
+  '622848': 'gold', '622821': 'gold', '625995': 'gold', '535910': 'gold', '403361': 'gold',
+  '622250': 'gold', '622251': 'gold', '622252': 'gold', '625025': 'gold', '458123': 'gold', '521899': 'gold',
+  '622688': 'gold', '622689': 'gold', '622690': 'gold', '625800': 'gold', '433670': 'gold', '518212': 'gold',
+  '622516': 'gold', '622517': 'gold', '622521': 'gold', '622522': 'gold', '456418': 'gold', '517650': 'gold',
+  '622568': 'gold', '625070': 'gold', '406365': 'gold', '528931': 'gold',
+  '622150': 'gold', '622151': 'gold', '625977': 'gold', '526855': 'gold',
+  '622900': 'gold', '622901': 'gold', '622902': 'gold', '527414': 'gold',
+  '622615': 'gold', '622617': 'gold', '622619': 'gold', '622620': 'gold', '517636': 'gold',
+  '622650': 'gold', '622655': 'gold', '622656': 'gold', '406252': 'gold',
+  '622810': 'gold', '622811': 'gold', '625918': 'gold',
+  '622636': 'gold', '622637': 'gold', '625966': 'gold',
+
+  // 普卡 / 标准借记卡
+  '625908': 'standard',
+  '622589': 'standard', '621286': 'standard', '621483': 'standard',
+  '621226': 'standard', '622220': 'standard', '622225': 'standard', '621721': 'standard',
+  '621700': 'standard', '621284': 'standard', '622280': 'standard',
+  '621660': 'standard', '621661': 'standard', '621756': 'standard', '622755': 'standard',
+  '622845': 'standard', '622846': 'standard', '621282': 'standard', '621336': 'standard',
+  '622260': 'standard', '622262': 'standard', '621069': 'standard',
+  '621768': 'standard', '622696': 'standard',
+  '621792': 'standard', '622520': 'standard',
+  '621462': 'standard', '622560': 'standard',
+  '621626': 'standard', '622986': 'standard',
+  '621691': 'standard', '622600': 'standard',
+  '622660': 'standard', '621492': 'standard',
+  '622188': 'standard', '621799': 'standard', '621098': 'standard',
+  '621222': 'standard', '622630': 'standard',
+};
+
+export interface BinTierMatchResult {
+  tier: CardTier;
+  label: string;
+  matchedBy: 'bin' | 'name' | 'default';
+  binPrefix: string;
+  matchedDesc: string;
+}
+
+/**
+ * 根据卡BIN（前6位数字）及卡片名称匹配卡片等级
+ */
+export function detectCardTierByBin(cardNumber: string, cardName?: string): BinTierMatchResult {
+  const clean = (cardNumber || '').replace(/\D/g, '');
+  const bin6 = clean.slice(0, 6);
+  const bin4 = clean.slice(0, 4);
+
+  // 1. 优先精确匹配 6 位卡 BIN
+  if (bin6.length === 6 && BIN_TIER_EXACT_6[bin6]) {
+    const tier = BIN_TIER_EXACT_6[bin6];
+    const label = getCardTierLabel(tier);
+    return {
+      tier,
+      label,
+      matchedBy: 'bin',
+      binPrefix: bin6,
+      matchedDesc: `卡BIN ${bin6} 匹配为${label}`,
+    };
+  }
+
+  // 2. 匹配部分明确的高端国际卡组织 BIN 前缀
+  if (bin4 === '3702') {
+    return { tier: 'black', label: '黑金卡', matchedBy: 'bin', binPrefix: bin4, matchedDesc: `卡BIN ${bin4} 匹配为黑金卡` };
+  }
+  if (bin6.startsWith('6259') && cardName && /钻石/.test(cardName)) {
+    return { tier: 'diamond', label: '钻石卡', matchedBy: 'bin', binPrefix: bin6, matchedDesc: `卡BIN ${bin6} 匹配为钻石卡` };
+  }
+  if (bin6.startsWith('6259')) {
+    return { tier: 'platinum', label: '白金卡', matchedBy: 'bin', binPrefix: bin6, matchedDesc: `银联白金段 ${bin6} 匹配为白金卡` };
+  }
+
+  // 3. 结合卡片名称关键词辅助判断（仅当明确包含等级名称时）
+  if (cardName) {
+    const parsedFromName = parseCardTierInput(cardName);
+    if (parsedFromName) {
+      const label = getCardTierLabel(parsedFromName);
+      return {
+        tier: parsedFromName,
+        label,
+        matchedBy: 'name',
+        binPrefix: bin6,
+        matchedDesc: `卡名匹配为${label}`,
+      };
+    }
+  }
+
+  // 4. 默认返回普卡（不再默认套用白金卡）
+  return {
+    tier: 'standard',
+    label: '普卡',
+    matchedBy: 'default',
+    binPrefix: bin6,
+    matchedDesc: bin6 ? `卡BIN ${bin6} 未收录，默认普卡` : '默认普卡',
+  };
+}
+
 export function detectCardOrganization(cardNumber: string): CardOrganization {
   const clean = cardNumber.replace(/\D/g, '');
   if (!clean) return 'UnionPay';

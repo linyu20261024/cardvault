@@ -1,6 +1,9 @@
 import * as XLSX from 'xlsx';
 import { CardRecord, StorageSettings, AnnualFeePolicy, AnnualFeeType } from '../types/card';
-import { normalizeBankName, normalizePerson, BANK_CONFIGS } from './bankData';
+import { 
+  normalizeBankName, normalizePerson, BANK_CONFIGS, 
+  detectCardTierByBin, getCardTierLabel, parseCardTierInput, detectCardOrganization 
+} from './bankData';
 
 const CARDS_STORAGE_KEY = 'cardvault_cards_v1';
 const SETTINGS_STORAGE_KEY = 'cardvault_settings_v1';
@@ -572,7 +575,8 @@ export const SPREADSHEET_COLUMNS = [
   '卡组织(UnionPay/Visa/Mastercard)',
   '持卡人(选填，注重隐私可直接留空)',
   '客服电话',
-  '私密备忘'
+  '私密备忘',
+  '卡片等级(普卡/金卡/白金卡/钻石卡/黑金卡，留空按卡BIN自动识别)'
 ];
 
 /**
@@ -599,7 +603,8 @@ function cardsToRows(cards: CardRecord[]): any[][] {
     c.organization,
     c.cardholder || '', // 隐私保护：支持留空
     c.phoneBank || '',
-    c.notes || ''
+    c.notes || '',
+    getCardTierLabel(c.cardTier)
   ]);
 }
 
@@ -631,6 +636,7 @@ export function exportCardsToExcelBlob(cards: CardRecord[]): Blob {
     { wch: 16 }, // 持卡人
     { wch: 14 }, // 客服电话
     { wch: 32 }, // 私密备忘
+    { wch: 20 }, // 卡片等级
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, '我的银行卡');
@@ -662,7 +668,8 @@ export function getStandardExcelTemplateBlob(): Blob {
     'UnionPay',
     '本人', // 隐私保护：可留空或填本人
     '95555',
-    '生日月10倍积分'
+    '生日月10倍积分',
+    '白金卡'
   ];
 
   const sampleRow2 = [
@@ -683,7 +690,8 @@ export function getStandardExcelTemplateBlob(): Blob {
     'UnionPay',
     '', // 隐私保护：留空示例
     '95588',
-    '差1笔达标'
+    '差1笔达标',
+    '黑金卡'
   ];
 
   const sampleRow3 = [
@@ -704,7 +712,8 @@ export function getStandardExcelTemplateBlob(): Blob {
     'UnionPay',
     '', // 留空
     '95555',
-    '工资卡与房贷扣款'
+    '工资卡与房贷扣款',
+    '金卡'
   ];
 
   const rows = [
@@ -720,7 +729,7 @@ export function getStandardExcelTemplateBlob(): Blob {
     { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     { wch: 22 }, { wch: 12 }, { wch: 38 }, { wch: 16 },
     { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 16 },
-    { wch: 14 }, { wch: 32 }
+    { wch: 14 }, { wch: 32 }, { wch: 20 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, '卡片批量维护模板');
@@ -750,7 +759,8 @@ export function exportCardsToCsv(cards: CardRecord[]): string {
     `"${c.organization}"`,
     `"${c.cardholder || ''}"`,
     `"${c.phoneBank || ''}"`,
-    `"${(c.notes || '').replace(/"/g, '""')}"`
+    `"${(c.notes || '').replace(/"/g, '""')}"`,
+    `"${getCardTierLabel(c.cardTier)}"`
   ]);
 
   return [SPREADSHEET_COLUMNS.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -778,7 +788,8 @@ export function getStandardCsvTemplate(): string {
     'UnionPay',
     '本人',
     '95555',
-    '生日月10倍积分'
+    '生日月10倍积分',
+    '白金卡'
   ];
 
   const sampleRow2 = [
@@ -799,7 +810,8 @@ export function getStandardCsvTemplate(): string {
     'UnionPay',
     '',
     '95588',
-    '差1笔达标'
+    '差1笔达标',
+    '黑金卡'
   ];
 
   const sampleRow3 = [
@@ -820,7 +832,8 @@ export function getStandardCsvTemplate(): string {
     'UnionPay',
     '',
     '95555',
-    '工资与理财'
+    '工资与理财',
+    '金卡'
   ];
 
   return [SPREADSHEET_COLUMNS.join(','), sampleRow1.join(','), sampleRow2.join(','), sampleRow3.join(',')].join('\n');
@@ -878,6 +891,7 @@ export function parseTableRowsToCards(
         else if (/持卡人|姓名|holder/i.test(c) && colMap['cardholder'] === undefined) colMap['cardholder'] = idx;
         else if (/电话|客服|热线|phone/i.test(c) && colMap['phone'] === undefined) colMap['phone'] = idx;
         else if (/备注|备忘|说明|notes/i.test(c) && colMap['notes'] === undefined) colMap['notes'] = idx;
+        else if (/卡片等级|卡等级|卡级|等级|tier/i.test(c) && colMap['cardTier'] === undefined) colMap['cardTier'] = idx;
       });
       break;
     }
@@ -933,12 +947,17 @@ export function parseTableRowsToCards(
     const [m = '12', y = '29'] = expiry.split('/');
     const cvv = getVal('cvv', 13).replace(/[\s"']/g, '');
     
-    let organization = getVal('organization', 14) || 'UnionPay';
+    const orgRaw = getVal('organization', 14);
+    let organization = orgRaw || detectCardOrganization(cardNumber);
     if (/visa/i.test(organization)) organization = 'Visa';
     else if (/master/i.test(organization)) organization = 'Mastercard';
     else if (/amex|american/i.test(organization)) organization = 'American Express';
     else if (/jcb/i.test(organization)) organization = 'JCB';
-    else organization = 'UnionPay';
+    else organization = orgRaw ? 'UnionPay' : detectCardOrganization(cardNumber);
+
+    // 卡片等级：优先读取表格明确填写的等级，留空时根据卡BIN自动识别（不再一律默认白金卡）
+    const explicitTier = parseCardTierInput(getVal('cardTier', 18));
+    const cardTier = explicitTier || detectCardTierByBin(cardNumber, cardName).tier;
 
     const limit = Number(getVal('limit', 5)) || 0;
     const bill = Number(getVal('bill', 6)) || 0;
@@ -1040,7 +1059,7 @@ export function parseTableRowsToCards(
       expiryYear: y.length === 4 ? y.slice(-2) : y,
       cvv,
       organization: organization as any,
-      cardTier: 'platinum',
+      cardTier,
       currency: 'CNY',
       creditLimit: isDebit ? 0 : limit,
       balance: isDebit ? limit : 0,
@@ -1189,4 +1208,28 @@ export function parseCsvToCards(
   } catch (err: any) {
     return { success: false, count: 0, message: `CSV 解析失败: ${err.message}`, cards: [] };
   }
+}
+
+/**
+ * 批量按卡BIN智能校准已录入卡片的等级（不更改用户其他字段）
+ */
+export function recalibrateAllCardsTierByBin(cards: CardRecord[]): {
+  cards: CardRecord[];
+  updatedCount: number;
+} {
+  let updatedCount = 0;
+  const now = new Date().toISOString();
+  const nextCards = cards.map((c) => {
+    const match = detectCardTierByBin(c.cardNumber, c.cardName);
+    if (c.cardTier !== match.tier) {
+      updatedCount++;
+      return {
+        ...c,
+        cardTier: match.tier,
+        updatedAt: now,
+      };
+    }
+    return c;
+  });
+  return { cards: nextCards, updatedCount };
 }

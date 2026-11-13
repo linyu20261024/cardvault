@@ -3,7 +3,7 @@ import { X, CreditCard, Sparkles, Building, Calendar, DollarSign, Shield, Info, 
 import { CardRecord, CardType, CardOrganization, CardTier, AnnualFeeType } from '../types/card';
 import { 
   POPULAR_BANKS, BANK_CONFIGS, THEME_GRADIENTS, 
-  detectCardOrganization, formatCardNumber 
+  detectCardOrganization, formatCardNumber, detectCardTierByBin 
 } from '../utils/bankData';
 import { parseAnnualFeePolicy } from '../utils/storage';
 import { computeDueDateForStatement } from '../utils/cardCalculations';
@@ -34,7 +34,9 @@ export const CardModal: React.FC<CardModalProps> = ({
   const [cvv, setCvv] = useState('');
   const [showCvv, setShowCvv] = useState(false);
   const [organization, setOrganization] = useState<CardOrganization>('UnionPay');
-  const [cardTier, setCardTier] = useState<CardTier>('platinum');
+  const [cardTier, setCardTier] = useState<CardTier>('standard');
+  const [tierManuallyEdited, setTierManuallyEdited] = useState(false);
+  const [binMatchHint, setBinMatchHint] = useState<string | null>(null);
   const [cardColorTheme, setCardColorTheme] = useState('black-gold');
   
   // Financial
@@ -104,6 +106,8 @@ export const CardModal: React.FC<CardModalProps> = ({
 
       setPhoneBank(initialCard.phoneBank || '');
       setNotes(initialCard.notes || '');
+      setTierManuallyEdited(true);
+      setBinMatchHint(null);
     } else {
       // Default reset
       setType('credit');
@@ -116,7 +120,9 @@ export const CardModal: React.FC<CardModalProps> = ({
       setExpiryYear('29');
       setCvv('');
       setOrganization('UnionPay');
-      setCardTier('platinum');
+      setCardTier('standard');
+      setTierManuallyEdited(false);
+      setBinMatchHint(null);
       setCardColorTheme('black-gold');
       setCreditLimit('50000');
       setBalance('50000');
@@ -147,12 +153,17 @@ export const CardModal: React.FC<CardModalProps> = ({
     }
   };
 
-  // When card number changes, auto detect organization
+  // When card number changes, auto detect organization and match tier by BIN
   const handleCardNumberChange = (val: string) => {
     const raw = val.replace(/\s+/g, '');
     setCardNumber(raw);
     if (raw.length >= 2) {
       setOrganization(detectCardOrganization(raw));
+    }
+    if (raw.replace(/\D/g, '').length >= 6 && !tierManuallyEdited) {
+      const res = detectCardTierByBin(raw, cardName);
+      setCardTier(res.tier);
+      setBinMatchHint(res.matchedDesc);
     }
   };
 
@@ -175,7 +186,7 @@ export const CardModal: React.FC<CardModalProps> = ({
       id: initialCard?.id || `card_${Date.now()}`,
       type,
       bankName: finalBank,
-      cardName: cardName.trim() || (type === 'credit' ? '白金信用卡' : '储蓄借记卡'),
+      cardName: cardName.trim() || (type === 'credit' ? '信用卡' : '储蓄借记卡'),
       cardNumber: cardNumber.trim(),
       cardholder: cardholder.trim() || '', // 保护隐私，选填
       isSharedLimit: type === 'credit' ? isSharedLimit : false,
@@ -404,12 +415,32 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                卡片卡阶
-              </label>
+              <div className="flex items-center justify-between gap-1">
+                <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                  卡片等级
+                </label>
+                {cardNumber.replace(/\D/g, '').length >= 6 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const res = detectCardTierByBin(cardNumber, cardName);
+                      setCardTier(res.tier);
+                      setTierManuallyEdited(false);
+                      setBinMatchHint(res.matchedDesc);
+                    }}
+                    className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                  >
+                    按卡BIN匹配
+                  </button>
+                )}
+              </div>
               <select
                 value={cardTier}
-                onChange={(e) => setCardTier(e.target.value as CardTier)}
+                onChange={(e) => {
+                  setCardTier(e.target.value as CardTier);
+                  setTierManuallyEdited(true);
+                  setBinMatchHint(null);
+                }}
                 className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white"
               >
                 <option value="standard">普卡 (Standard)</option>
@@ -418,6 +449,11 @@ export const CardModal: React.FC<CardModalProps> = ({
                 <option value="diamond">钻石卡 (Diamond)</option>
                 <option value="black">黑金/御玺 (Black)</option>
               </select>
+              {binMatchHint && (
+                <div className="text-[10px] text-emerald-600 dark:text-emerald-400 truncate" title={binMatchHint}>
+                  {binMatchHint}
+                </div>
+              )}
             </div>
           </div>
 
@@ -813,11 +849,11 @@ export const CardModal: React.FC<CardModalProps> = ({
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                私密备忘与优惠特权说明
+                私密备忘
               </label>
               <input
                 type="text"
-                placeholder="例如：周三5折美食、机场贵宾厅6次、海淘返现卡"
+                placeholder="例如：绑定快捷支付、日常消费卡或备注说明"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white"

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, PlusCircle, Check, MoreHorizontal, ArrowUpDown, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import { CardRecord } from '../types/card';
-import { BANK_CONFIGS, formatCardNumber, formatMoney } from '../utils/bankData';
+import { CardRecord, CardTier } from '../types/card';
+import { BANK_CONFIGS, CARD_TIER_OPTIONS, formatCardNumber, formatMoney, getCardTierLabel } from '../utils/bankData';
 import { calculateBillStatus, calculateAnnualFeeStatus } from '../utils/cardCalculations';
 
 interface CardTableViewProps {
@@ -11,6 +11,7 @@ interface CardTableViewProps {
   onQuickSwipe: (card: CardRecord) => void;
   onQuickRepay: (card: CardRecord) => void;
   onDeleteCard: (cardId: string) => void;
+  onUpdateCardTier?: (card: CardRecord, tier: CardTier) => void;
 }
 
 export const CardTableView: React.FC<CardTableViewProps> = ({
@@ -19,6 +20,7 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
   onOpenDetails,
   onQuickSwipe,
   onQuickRepay,
+  onUpdateCardTier,
 }) => {
   const [unhiddenCvvIds, setUnhiddenCvvIds] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -94,8 +96,30 @@ export const CardTableView: React.FC<CardTableViewProps> = ({
                         <span className="text-[10px] text-neutral-400">·</span>
                         <span>{card.cardName}</span>
                       </div>
-                      <div className="text-[11px] text-neutral-400 flex items-center gap-1.5">
+                      <div className="text-[11px] text-neutral-400 flex items-center gap-1.5 flex-wrap">
                         <span>{card.organization}</span>
+                        {onUpdateCardTier ? (
+                          <select
+                            value={card.cardTier || 'standard'}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              onUpdateCardTier(card, e.target.value as CardTier);
+                            }}
+                            aria-label="修改卡片等级"
+                            className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded px-1.5 py-0.5 text-[10px] text-neutral-700 dark:text-neutral-200 font-medium focus:outline-hidden cursor-pointer"
+                          >
+                            {CARD_TIER_OPTIONS.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-[10px] font-medium">
+                            {getCardTierLabel(card.cardTier)}
+                          </span>
+                        )}
                         {card.type === 'credit' && (
                           <span className={`text-[10px] px-1 py-0.2 rounded font-medium ${
                             card.isSharedLimit !== false 

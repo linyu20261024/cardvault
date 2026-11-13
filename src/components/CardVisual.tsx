@@ -3,8 +3,11 @@ import {
   Copy, Check, RotateCw, Phone, ShieldCheck, 
   PlusCircle, CreditCard as CardIcon, Eye, EyeOff, MoreHorizontal
 } from 'lucide-react';
-import { CardRecord } from '../types/card';
-import { BANK_CONFIGS, THEME_GRADIENTS, formatCardNumber, formatMoney } from '../utils/bankData';
+import { CardRecord, CardTier } from '../types/card';
+import { 
+  BANK_CONFIGS, THEME_GRADIENTS, formatCardNumber, formatMoney, 
+  getCardTierLabel, CARD_TIER_OPTIONS 
+} from '../utils/bankData';
 import { calculateBillStatus, calculateAnnualFeeStatus } from '../utils/cardCalculations';
 
 interface CardVisualProps {
@@ -13,6 +16,7 @@ interface CardVisualProps {
   onOpenDetails: (card: CardRecord) => void;
   onQuickSwipe: (card: CardRecord) => void;
   onQuickRepay: (card: CardRecord) => void;
+  onUpdateCardTier?: (card: CardRecord, tier: CardTier) => void;
   isBestToSwipe?: boolean;
 }
 
@@ -22,6 +26,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   onOpenDetails,
   onQuickSwipe,
   onQuickRepay,
+  onUpdateCardTier,
   isBestToSwipe = false,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
@@ -57,6 +62,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   };
 
   const formattedNumber = formatCardNumber(card.cardNumber, privacyMode);
+  const tierLabel = getCardTierLabel(card.cardTier);
 
   return (
     <div className="flex flex-col group">
@@ -110,9 +116,29 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                     同行共享
                   </span>
                 )}
-                <span className="text-[10px] tracking-wider uppercase font-semibold text-white/60 px-1.5 py-0.5 rounded border border-white/10 bg-white/5">
-                  {card.type === 'credit' ? `${card.cardTier} · 信用卡` : '储蓄借记卡'}
-                </span>
+                {onUpdateCardTier ? (
+                  <select
+                    value={card.cardTier || 'standard'}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onUpdateCardTier(card, e.target.value as CardTier);
+                    }}
+                    title="点击切换配置卡片等级"
+                    aria-label="配置卡片等级"
+                    className="text-[10px] tracking-wider font-semibold text-white/85 hover:text-white px-1.5 py-0.5 rounded border border-white/15 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer focus:outline-hidden appearance-none text-center"
+                  >
+                    {CARD_TIER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value} className="bg-neutral-900 text-white">
+                        {opt.label} · {card.type === 'credit' ? '信用卡' : '储蓄卡'}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-[10px] tracking-wider font-semibold text-white/75 px-1.5 py-0.5 rounded border border-white/10 bg-white/5">
+                    {tierLabel} · {card.type === 'credit' ? '信用卡' : '储蓄卡'}
+                  </span>
+                )}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsFlipped(true); }}
                   title="翻转查看背面"

@@ -4,7 +4,10 @@ import {
   RotateCw, RefreshCw, CreditCard, ArrowRight, ShieldCheck, Eye
 } from 'lucide-react';
 import { CardRecord, CardType, CardOrganization, CardTier } from '../types/card';
-import { POPULAR_BANKS, BANK_CONFIGS, detectCardOrganization } from '../utils/bankData';
+import {
+  POPULAR_BANKS, BANK_CONFIGS, detectCardOrganization,
+  CARD_TIER_OPTIONS, getCardTierLabel, detectCardTierByBin, parseCardTierInput
+} from '../utils/bankData';
 
 interface CardScanModalProps {
   isOpen: boolean;
@@ -24,14 +27,15 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
 
   // Extracted & Editable Fields for the "确认后导入" step
   const [bankName, setBankName] = useState('招商银行');
-  const [cardName, setCardName] = useState('经典白金信用卡');
+  const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardholder, setCardholder] = useState('');
   const [expiryMonth, setExpiryMonth] = useState('12');
   const [expiryYear, setExpiryYear] = useState('29');
   const [cardType, setCardType] = useState<CardType>('credit');
   const [organization, setOrganization] = useState<CardOrganization>('UnionPay');
-  const [cardTier, setCardTier] = useState<CardTier>('platinum');
+  const [cardTier, setCardTier] = useState<CardTier>('standard');
+  const [tierManuallySelected, setTierManuallySelected] = useState(false);
   const [creditLimit, setCreditLimit] = useState('50000');
   const [statementDay, setStatementDay] = useState(5);
   const [dueDaysOffset, setDueDaysOffset] = useState(20);
@@ -130,15 +134,27 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
       const json = await res.json();
       if (json.success && json.data) {
         const d = json.data;
+        const cleanedNumber = d.cardNumber ? String(d.cardNumber).replace(/\s+/g, '') : '';
         if (d.bankName) setBankName(d.bankName);
         if (d.cardName) setCardName(d.cardName);
-        if (d.cardNumber) setCardNumber(d.cardNumber.replace(/\s+/g, ''));
+        if (cleanedNumber) setCardNumber(cleanedNumber);
         if (d.cardholder) setCardholder(d.cardholder.toUpperCase());
         if (d.expiryMonth) setExpiryMonth(d.expiryMonth.padStart(2, '0'));
         if (d.expiryYear) setExpiryYear(d.expiryYear);
         if (d.cardType) setCardType(d.cardType === 'debit' ? 'debit' : 'credit');
-        if (d.organization) setOrganization(d.organization as any);
-        if (d.cardTier) setCardTier(d.cardTier as any);
+        if (d.organization) {
+          setOrganization(d.organization as any);
+        } else if (cleanedNumber) {
+          setOrganization(detectCardOrganization(cleanedNumber));
+        }
+
+        const parsedOcrTier = d.cardTier ? parseCardTierInput(d.cardTier) : null;
+        if (parsedOcrTier) {
+          setCardTier(parsedOcrTier);
+        } else if (cleanedNumber) {
+          setCardTier(detectCardTierByBin(cleanedNumber, d.cardName).tier);
+        }
+        setTierManuallySelected(false);
 
         // 智能匹配银行默认客服与账单偏移
         const cfg = BANK_CONFIGS[d.bankName];
@@ -183,7 +199,7 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
       expiryYear: expiryYear || '29',
       cvv: '',
       organization: organization || detectCardOrganization(finalNumber),
-      cardTier: cardTier || 'platinum',
+      cardTier: cardTier || detectCardTierByBin(finalNumber, cardName).tier,
       currency: 'CNY',
       creditLimit: cardType === 'credit' ? Number(creditLimit) || 0 : 0,
       balance: cardType === 'debit' ? Number(creditLimit) || 0 : 0,
@@ -459,7 +475,7 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
                         银行卡号 (纯数字)
                       </label>
                       <span className="text-[10px] text-neutral-400">
-                        组织: {organization} · {cardTier}
+                        组织: {organization} · {getCardTierLabel(cardTier)}
                       </span>
                     </div>
                     <input
@@ -469,9 +485,44 @@ export const CardScanModal: React.FC<CardScanModalProps> = ({
                         const val = e.target.value.replace(/\D/g, '');
                         setCardNumber(val);
                         if (val.length >= 2) setOrganization(detectCardOrganization(val));
+                        if (val.length >= 6 && !tierManuallySelected) {
+                          setCardTier(detectCardTierByBin(val, cardName).tier);
+                        }
                       }}
                       className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg font-mono text-sm tracking-wider font-bold text-neutral-900 dark:text-white"
                     />
+                  </div>
+
+                  {/* Card Tier Config & BIN Match */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                        卡片等级 (支持配置或按卡BIN识别)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const match = detectCardTierByBin(cardNumber, cardName);
+                          setCardTier(match.tier);
+                          setTierManuallySelected(false);
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium transition-colors"
+                      >
+                        按卡BIN识别
+                      </button>
+                    </div>
+                    <select
+                      value={cardTier}
+                      onChange={(e) => {
+                        setCardTier(e.target.value as CardTier);
+                        setTierManuallySelected(true);
+                      }}
+                      className="w-full px-2.5 py-1.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white font-medium"
+                    >
+                      {CARD_TIER_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Cardholder & Expiry */}
